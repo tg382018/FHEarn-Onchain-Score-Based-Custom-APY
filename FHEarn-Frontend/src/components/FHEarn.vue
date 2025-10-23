@@ -732,10 +732,10 @@ async function fetchWalletMetrics(address: string) {
     // Test if Covalent provides aggregated data across chains (with rate limiting)
     const chainPromises = supportedChains.map(async (chain, index) => {
       try {
-        // Add delay to avoid rate limiting
-        if (index > 0) {
-          await new Promise((resolve) => setTimeout(resolve, index * 200)); // 200ms delay between requests
-        }
+                // Add delay to avoid rate limiting
+                if (index > 0) {
+                  await new Promise((resolve) => setTimeout(resolve, index * 500)); // 500ms delay between requests
+                }
 
         const [balanceResponse, txSummaryResponse, txListResponse] =
           await Promise.all([
@@ -962,25 +962,25 @@ async function stakeETH() {
   try {
     // Check if FHEVM is available
     if (!fhevmStatus.value?.instance) {
+      console.log("FHEVM Status:", fhevmStatus.value);
       throw new Error("FHEVM not initialized");
     }
     
     const amount = parseFloat(stakeAmount.value);
     const apy = walletMetrics.value?.apy || 5;
     
-    // Encrypt stake amount and APY
-    const encryptedAmount = fhevmStatus.value.instance.encrypt64(Math.floor(amount * 1e18));
-    const encryptedAPY = fhevmStatus.value.instance.encrypt64(apy);
+    // For now, simulate encrypted operations (will implement real FHEVM calls later)
+    console.log("Simulating encrypted stake operation...");
+    console.log("Amount:", amount, "APY:", apy);
     
-    // Create input proof
-    const inputProof = fhevmStatus.value.instance.generateInputProof([
-      encryptedAmount,
-      encryptedAPY
-    ]);
+    // TODO: Implement real FHEVM encrypted operations
+    // const encryptedAmount = fhevmStatus.value.instance.encrypt64(Math.floor(amount * 1e18));
+    // const encryptedAPY = fhevmStatus.value.instance.encrypt64(apy);
+    // const inputProof = fhevmStatus.value.instance.generateInputProof([encryptedAmount, encryptedAPY]);
     
     // For now, simulate the stake operation
     // In real implementation, this would call the FHEarnStake contract
-    console.log("Staking:", { amount, apy, encryptedAmount, encryptedAPY });
+    console.log("Staking:", { amount, apy });
     
     // Simulate contract call
     await new Promise(resolve => setTimeout(resolve, 2000));
@@ -1142,6 +1142,13 @@ async function initializeFHEVM() {
       const fhevmConfig = { ...SepoliaConfig, network: provider };
       const fhevmInstance = await createInstance(fhevmConfig);
       console.log("FHEVM instance created:", fhevmInstance);
+
+      // Update fhevmStatus with instance
+      fhevmStatus.value = {
+        ...fhevmStatus.value,
+        instance: fhevmInstance,
+        config: fhevmConfig
+      };
 
       // Check if FHEVM is in real mode (not mock)
       console.log("FHEVM Config:", fhevmConfig);
