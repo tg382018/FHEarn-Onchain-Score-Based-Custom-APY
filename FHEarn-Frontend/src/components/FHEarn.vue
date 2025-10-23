@@ -143,10 +143,177 @@
               <p class="text-muted-foreground text-sm">
                 Built on Zama's FHEVM for secure computation
               </p>
-            </div>
-          </div>
+                  </div>
+                </div>
 
-          <!-- Comprehensive Wallet Analytics -->
+                <!-- Stake Section -->
+                <div
+                  v-if="isConnected && walletMetrics"
+                  class="bg-gradient-to-r from-green-900/30 to-blue-900/30 rounded-lg p-6 mb-8 border border-green-500/30"
+                >
+                  <h3 class="text-xl font-bold text-green-300 mb-6">
+                    🚀 Confidential Staking
+                  </h3>
+
+                  <!-- Stake Input Section -->
+                  <div v-if="!stakeInfo.isActive" class="mb-6">
+                    <div class="mb-4">
+                      <label class="block text-sm font-medium text-green-200 mb-2">
+                        Stake Amount (Sepolia ETH)
+                      </label>
+                      <div class="flex space-x-2">
+                        <input
+                          v-model="stakeAmount"
+                          type="number"
+                          step="0.001"
+                          min="0.001"
+                          placeholder="0.001"
+                          class="flex-1 bg-slate-800/50 border border-slate-600 rounded-lg px-4 py-2 text-foreground placeholder-slate-400 focus:border-green-400 focus:ring-1 focus:ring-green-400"
+                        />
+                        <button
+                          @click="setMaxAmount"
+                          class="bg-green-600/20 border border-green-500/30 text-green-300 px-3 py-2 rounded-lg hover:bg-green-600/30 transition-colors text-sm"
+                        >
+                          MAX
+                        </button>
+                      </div>
+                      <p class="text-xs text-green-300 mt-1">
+                        Your APY: {{ walletMetrics.apy }}% ({{ walletMetrics.tier }} Tier)
+                      </p>
+                    </div>
+
+                    <button
+                      @click="stakeETH"
+                      :disabled="!stakeAmount || stakeAmount <= 0 || isStaking"
+                      class="w-full bg-gradient-to-r from-green-500 to-green-400 text-white px-6 py-3 rounded-lg hover:from-green-600 hover:to-green-500 transition-all duration-200 font-medium flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <svg
+                        v-if="isStaking"
+                        class="animate-spin w-5 h-5"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          class="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          stroke-width="4"
+                        ></circle>
+                        <path
+                          class="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        ></path>
+                      </svg>
+                      <svg
+                        v-else
+                        class="w-5 h-5"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path
+                          fill-rule="evenodd"
+                          d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l3 3a1 1 0 001.414-1.414L11 9.586V6z"
+                          clip-rule="evenodd"
+                        />
+                      </svg>
+                      <span>{{ isStaking ? 'Staking...' : 'Stake ETH' }}</span>
+                    </button>
+                  </div>
+
+                  <!-- Active Stake Info -->
+                  <div v-else class="space-y-4">
+                    <div class="grid md:grid-cols-2 gap-4">
+                      <div class="bg-slate-800/50 rounded-lg p-4">
+                        <div class="flex items-center justify-between mb-2">
+                          <span class="text-muted-foreground text-sm">Staked Amount</span>
+                          <svg class="w-4 h-4 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 002-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd" />
+                          </svg>
+                        </div>
+                        <div class="text-foreground font-semibold text-lg">
+                          {{ stakeInfo.amount }} ETH
+                        </div>
+                      </div>
+
+                      <div class="bg-slate-800/50 rounded-lg p-4">
+                        <div class="flex items-center justify-between mb-2">
+                          <span class="text-muted-foreground text-sm">Current Rewards</span>
+                          <svg class="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                          </svg>
+                        </div>
+                        <div class="text-yellow-300 font-semibold text-lg">
+                          {{ stakeInfo.rewards }} ETH
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="flex space-x-3">
+                      <button
+                        @click="claimRewards"
+                        :disabled="isClaiming || stakeInfo.rewards <= 0"
+                        class="flex-1 bg-gradient-to-r from-yellow-500 to-yellow-400 text-white px-4 py-2 rounded-lg hover:from-yellow-600 hover:to-yellow-500 transition-all duration-200 font-medium flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <svg
+                          v-if="isClaiming"
+                          class="animate-spin w-4 h-4"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <svg
+                          v-else
+                          class="w-4 h-4"
+                          fill="currentColor"
+                          viewBox="0 0 20 20"
+                        >
+                          <path fill-rule="evenodd" d="M3 3a1 1 0 000 2v8a2 2 0 002 2h2.586l-1.293 1.293a1 1 0 101.414 1.414L10 15.414l2.293 2.293a1 1 0 001.414-1.414L12.414 15H15a2 2 0 002-2V5a1 1 0 100-2H3zm11.707 4.707a1 1 0 00-1.414-1.414L9 10.586 8.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                        </svg>
+                        <span>{{ isClaiming ? 'Claiming...' : 'Claim Rewards' }}</span>
+                      </button>
+
+                      <button
+                        @click="withdrawAll"
+                        :disabled="isWithdrawing"
+                        class="flex-1 bg-gradient-to-r from-red-500 to-red-400 text-white px-4 py-2 rounded-lg hover:from-red-600 hover:to-red-500 transition-all duration-200 font-medium flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <svg
+                          v-if="isWithdrawing"
+                          class="animate-spin w-4 h-4"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <svg
+                          v-else
+                          class="w-4 h-4"
+                          fill="currentColor"
+                          viewBox="0 0 20 20"
+                        >
+                          <path fill-rule="evenodd" d="M3 3a1 1 0 000 2v8a2 2 0 002 2h2.586l-1.293 1.293a1 1 0 101.414 1.414L10 15.414l2.293 2.293a1 1 0 001.414-1.414L12.414 15H15a2 2 0 002-2V5a1 1 0 100-2H3zm11.707 4.707a1 1 0 00-1.414-1.414L9 10.586 8.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                        </svg>
+                        <span>{{ isWithdrawing ? 'Withdrawing...' : 'Withdraw All' }}</span>
+                      </button>
+                    </div>
+
+                    <!-- Stake Info -->
+                    <div class="text-xs text-green-300">
+                      <p>Staked on: {{ stakeInfo.stakeDate }}</p>
+                      <p>APY: {{ walletMetrics.apy }}% ({{ walletMetrics.tier }} Tier)</p>
+                      <p>Rewards update every 2 minutes</p>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Comprehensive Wallet Analytics -->
           <div
             v-if="isConnected && walletMetrics"
             class="bg-slate-800/50 rounded-lg p-6 border border-slate-700 mb-8"
@@ -416,6 +583,19 @@ const account = ref<string | null>(null);
 const fhevmStatus = ref<any>(null);
 const isMetaMaskInstalled = ref(false);
 const walletMetrics = ref<any>(null);
+
+// Stake State
+const stakeAmount = ref<string>("");
+const isStaking = ref(false);
+const isClaiming = ref(false);
+const isWithdrawing = ref(false);
+const stakeInfo = ref({
+  isActive: false,
+  amount: "0",
+  rewards: "0",
+  stakeDate: "",
+  apy: 0
+});
 
 // Covalent API Configuration
 const COVALENT_API_KEY = "cqt_rQyRVjPctqcPT9qJKJvWdWtX8v69";
@@ -767,6 +947,160 @@ function calculateAge(dateString: string): string {
 }
 
 // Check MetaMask installation
+// Stake Functions
+function setMaxAmount() {
+  if (walletMetrics.value?.balance) {
+    stakeAmount.value = (parseFloat(walletMetrics.value.balance) * 0.95).toFixed(3); // 95% of balance
+  }
+}
+
+async function stakeETH() {
+  if (!stakeAmount.value || parseFloat(stakeAmount.value) <= 0) return;
+  
+  isStaking.value = true;
+  
+  try {
+    // Check if FHEVM is available
+    if (!fhevmStatus.value?.instance) {
+      throw new Error("FHEVM not initialized");
+    }
+    
+    const amount = parseFloat(stakeAmount.value);
+    const apy = walletMetrics.value?.apy || 5;
+    
+    // Encrypt stake amount and APY
+    const encryptedAmount = fhevmStatus.value.instance.encrypt64(Math.floor(amount * 1e18));
+    const encryptedAPY = fhevmStatus.value.instance.encrypt64(apy);
+    
+    // Create input proof
+    const inputProof = fhevmStatus.value.instance.generateInputProof([
+      encryptedAmount,
+      encryptedAPY
+    ]);
+    
+    // For now, simulate the stake operation
+    // In real implementation, this would call the FHEarnStake contract
+    console.log("Staking:", { amount, apy, encryptedAmount, encryptedAPY });
+    
+    // Simulate contract call
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    // Update stake info
+    stakeInfo.value = {
+      isActive: true,
+      amount: stakeAmount.value,
+      rewards: "0",
+      stakeDate: new Date().toLocaleDateString(),
+      apy: apy
+    };
+    
+    // Save to localStorage for persistence
+    localStorage.setItem('fhearn_stake_info', JSON.stringify(stakeInfo.value));
+    
+    console.log("Stake successful!");
+    
+  } catch (error) {
+    console.error("Stake error:", error);
+    alert("Staking failed: " + error.message);
+  } finally {
+    isStaking.value = false;
+  }
+}
+
+async function claimRewards() {
+  if (!stakeInfo.value.isActive) return;
+  
+  isClaiming.value = true;
+  
+  try {
+    // Calculate rewards (simplified calculation)
+    const stakeTime = new Date().getTime() - new Date(stakeInfo.value.stakeDate).getTime();
+    const daysStaked = stakeTime / (1000 * 60 * 60 * 24);
+    const annualReward = parseFloat(stakeInfo.value.amount) * (stakeInfo.value.apy / 100);
+    const currentReward = (annualReward * daysStaked) / 365;
+    
+    console.log("Claiming rewards:", currentReward);
+    
+    // Simulate contract call
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    
+    // Reset rewards to 0
+    stakeInfo.value.rewards = "0";
+    stakeInfo.value.stakeDate = new Date().toLocaleDateString(); // Reset stake date
+    
+    // Save to localStorage
+    localStorage.setItem('fhearn_stake_info', JSON.stringify(stakeInfo.value));
+    
+    console.log("Rewards claimed successfully!");
+    
+  } catch (error) {
+    console.error("Claim error:", error);
+    alert("Claim failed: " + error.message);
+  } finally {
+    isClaiming.value = false;
+  }
+}
+
+async function withdrawAll() {
+  if (!stakeInfo.value.isActive) return;
+  
+  isWithdrawing.value = true;
+  
+  try {
+    console.log("Withdrawing all:", stakeInfo.value.amount);
+    
+    // Simulate contract call
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    // Reset stake info
+    stakeInfo.value = {
+      isActive: false,
+      amount: "0",
+      rewards: "0",
+      stakeDate: "",
+      apy: 0
+    };
+    
+    // Remove from localStorage
+    localStorage.removeItem('fhearn_stake_info');
+    
+    console.log("Withdrawal successful!");
+    
+  } catch (error) {
+    console.error("Withdrawal error:", error);
+    alert("Withdrawal failed: " + error.message);
+  } finally {
+    isWithdrawing.value = false;
+  }
+}
+
+// Load stake info from localStorage on mount
+function loadStakeInfo() {
+  const savedStakeInfo = localStorage.getItem('fhearn_stake_info');
+  if (savedStakeInfo) {
+    stakeInfo.value = JSON.parse(savedStakeInfo);
+  }
+}
+
+// Update rewards every 2 minutes
+function startRewardUpdates() {
+  if (stakeInfo.value.isActive) {
+    setInterval(() => {
+      if (stakeInfo.value.isActive) {
+        const stakeTime = new Date().getTime() - new Date(stakeInfo.value.stakeDate).getTime();
+        const daysStaked = stakeTime / (1000 * 60 * 60 * 24);
+        const annualReward = parseFloat(stakeInfo.value.amount) * (stakeInfo.value.apy / 100);
+        const currentReward = (annualReward * daysStaked) / 365;
+        
+        stakeInfo.value.rewards = currentReward.toFixed(6);
+        
+        // Save to localStorage
+        localStorage.setItem('fhearn_stake_info', JSON.stringify(stakeInfo.value));
+      }
+    }, 120000); // 2 minutes
+  }
+}
+
 onMounted(async () => {
   isMetaMaskInstalled.value = typeof window.ethereum !== "undefined";
 
@@ -774,6 +1108,10 @@ onMounted(async () => {
     await initializeFHEVM();
     await checkConnection();
   }
+  
+  // Load stake info and start reward updates
+  loadStakeInfo();
+  startRewardUpdates();
 });
 
 // Initialize FHEVM
