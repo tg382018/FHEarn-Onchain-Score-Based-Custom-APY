@@ -569,7 +569,7 @@
 
 <script lang="ts" setup>
 import { ref, onMounted } from "vue";
-import { BrowserProvider } from "ethers";
+import { BrowserProvider, ethers } from "ethers";
 
 // FHEVM SDK
 const SDK_URL = "https://cdn.zama.ai/relayer-sdk-js/0.2.0/relayer-sdk-js.js";
@@ -969,21 +969,58 @@ async function stakeETH() {
     const amount = parseFloat(stakeAmount.value);
     const apy = walletMetrics.value?.apy || 5;
     
-    // For now, simulate encrypted operations (will implement real FHEVM calls later)
-    console.log("Simulating encrypted stake operation...");
+    console.log("Starting real FHEVM stake operation...");
     console.log("Amount:", amount, "APY:", apy);
     
-    // TODO: Implement real FHEVM encrypted operations
-    // const encryptedAmount = fhevmStatus.value.instance.encrypt64(Math.floor(amount * 1e18));
-    // const encryptedAPY = fhevmStatus.value.instance.encrypt64(apy);
-    // const inputProof = fhevmStatus.value.instance.generateInputProof([encryptedAmount, encryptedAPY]);
+    // Get contract instance
+    const contractAddress = "0x5F1AC27c347e5933FdAbF2CF9E8F827901B0797A"; // Deployed FHEarnStake
+    const contractABI = [
+      {
+        "inputs": [
+          {"internalType": "externalEuint64", "name": "encryptedAmount", "type": "bytes32"},
+          {"internalType": "externalEuint64", "name": "encryptedAPY", "type": "bytes32"},
+          {"internalType": "bytes", "name": "inputProof", "type": "bytes"}
+        ],
+        "name": "stake",
+        "outputs": [],
+        "stateMutability": "payable",
+        "type": "function"
+      }
+    ];
     
-    // For now, simulate the stake operation
-    // In real implementation, this would call the FHEarnStake contract
-    console.log("Staking:", { amount, apy });
+    // Create contract instance
+    const provider = new ethers.BrowserProvider(window.ethereum);
+    const signer = await provider.getSigner();
+    const contract = new ethers.Contract(contractAddress, contractABI, signer);
     
-    // Simulate contract call
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    // Encrypt stake amount and APY using FHEVM
+    const encryptedAmount = fhevmStatus.value.instance.encrypt64(Math.floor(amount * 1e18));
+    const encryptedAPY = fhevmStatus.value.instance.encrypt64(apy);
+    
+    // Create input proof
+    const inputProof = fhevmStatus.value.instance.generateInputProof([
+      encryptedAmount,
+      encryptedAPY
+    ]);
+    
+    console.log("Calling real contract with encrypted data...");
+    
+    // Call the contract with real ETH
+    const tx = await contract.stake(
+      encryptedAmount,
+      encryptedAPY,
+      inputProof,
+      {
+        value: ethers.parseEther(amount.toString()),
+        gasLimit: 1000000
+      }
+    );
+    
+    console.log("Transaction sent:", tx.hash);
+    
+    // Wait for transaction confirmation
+    const receipt = await tx.wait();
+    console.log("Transaction confirmed:", receipt);
     
     // Update stake info
     stakeInfo.value = {
