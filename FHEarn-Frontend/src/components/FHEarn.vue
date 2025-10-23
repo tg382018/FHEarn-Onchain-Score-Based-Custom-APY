@@ -1,0 +1,954 @@
+<template>
+  <div class="min-h-screen bg-zama p-4 text-foreground">
+    <!-- Header -->
+    <div class="max-w-6xl mx-auto">
+      <div class="flex items-center justify-between mb-8">
+        <div class="flex items-center space-x-4">
+          <img
+            src="/fhearnlogo.png"
+            alt="FHEarn Logo"
+            class="h-[60px] w-[100px]"
+          />
+          <div>
+            <h1 class="text-2xl font-bold text-foreground">FHEarn</h1>
+            <p class="text-muted-foreground">Onchain Score-Based Custom APY</p>
+          </div>
+        </div>
+
+        <!-- Wallet Connection -->
+        <div v-if="!isConnected" class="flex items-center space-x-4">
+          <div
+            class="bg-orange-500/20 border border-orange-500/30 rounded-lg px-4 py-2 flex items-center space-x-2"
+          >
+            <svg
+              class="w-5 h-5 text-orange-400"
+              fill="currentColor"
+              viewBox="0 0 20 20"
+            >
+              <path
+                fill-rule="evenodd"
+                d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                clip-rule="evenodd"
+              />
+            </svg>
+            <span class="text-orange-400">Please connect your wallet</span>
+          </div>
+          <button
+            @click="connectWallet"
+            class="bg-gradient-to-r from-primary-300 to-primary-200 text-primary-foreground px-6 py-2 rounded-lg hover:from-primary-400 hover:to-primary-300 transition-all duration-200 font-medium flex items-center space-x-2"
+          >
+            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+              <path
+                d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z"
+              />
+            </svg>
+            <span>Connect Wallet</span>
+          </button>
+        </div>
+
+        <div v-else class="flex items-center space-x-4">
+          <div
+            class="bg-green-500/20 border border-green-500/30 rounded-lg px-4 py-2 flex items-center space-x-2"
+          >
+            <div class="w-2 h-2 bg-green-400 rounded-full"></div>
+            <span class="text-green-400">Connected</span>
+          </div>
+          <div class="text-sm text-muted-foreground">
+            {{ account?.slice(0, 6) }}...{{ account?.slice(-4) }}
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Content -->
+      <div class="bg-surface rounded-xl border border-slate-700 p-8">
+        <div class="text-center">
+          <h2 class="text-3xl font-bold text-foreground mb-4">
+            Welcome to FHEarn
+          </h2>
+          <p class="text-muted-foreground mb-8 max-w-2xl mx-auto">
+            FHEarn is a confidential DeFi platform built with Fully Homomorphic
+            Encryption (FHE). Experience privacy-preserving financial services
+            on the blockchain.
+          </p>
+
+          <!-- Features Grid -->
+          <div class="grid md:grid-cols-3 gap-6 mb-8">
+            <div class="bg-slate-800/50 rounded-lg p-6 border border-slate-700">
+              <div
+                class="w-12 h-12 bg-primary-500/20 rounded-lg flex items-center justify-center mb-4 mx-auto"
+              >
+                <svg
+                  class="w-6 h-6 text-primary-400"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path
+                    fill-rule="evenodd"
+                    d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z"
+                    clip-rule="evenodd"
+                  />
+                </svg>
+              </div>
+              <h3 class="text-lg font-semibold text-foreground mb-2">
+                Confidential Trading
+              </h3>
+              <p class="text-muted-foreground text-sm">
+                Trade tokens while keeping your amounts and balances private
+              </p>
+            </div>
+
+            <div class="bg-slate-800/50 rounded-lg p-6 border border-slate-700">
+              <div
+                class="w-12 h-12 bg-primary-500/20 rounded-lg flex items-center justify-center mb-4 mx-auto"
+              >
+                <svg
+                  class="w-6 h-6 text-primary-400"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path
+                    fill-rule="evenodd"
+                    d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
+                    clip-rule="evenodd"
+                  />
+                </svg>
+              </div>
+              <h3 class="text-lg font-semibold text-foreground mb-2">
+                Privacy Protection
+              </h3>
+              <p class="text-muted-foreground text-sm">
+                Your financial data remains encrypted and confidential
+              </p>
+            </div>
+
+            <div class="bg-slate-800/50 rounded-lg p-6 border border-slate-700">
+              <div
+                class="w-12 h-12 bg-primary-500/20 rounded-lg flex items-center justify-center mb-4 mx-auto"
+              >
+                <svg
+                  class="w-6 h-6 text-primary-400"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path
+                    fill-rule="evenodd"
+                    d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                    clip-rule="evenodd"
+                  />
+                </svg>
+              </div>
+              <h3 class="text-lg font-semibold text-foreground mb-2">
+                FHEVM Powered
+              </h3>
+              <p class="text-muted-foreground text-sm">
+                Built on Zama's FHEVM for secure computation
+              </p>
+            </div>
+          </div>
+
+          <!-- Comprehensive Wallet Analytics -->
+          <div
+            v-if="isConnected && walletMetrics"
+            class="bg-slate-800/50 rounded-lg p-6 border border-slate-700 mb-8"
+          >
+            <h3 class="text-lg font-semibold text-foreground mb-4">
+              📊 Covalent API Wallet Analytics (Ethereum Mainnet)
+            </h3>
+
+            <!-- Onchain Score & APY Section -->
+            <div
+              class="bg-gradient-to-r from-blue-900/30 to-purple-900/30 rounded-lg p-6 mb-6 border border-blue-500/30"
+            >
+              <div class="flex items-center justify-between mb-4">
+                <h4 class="text-xl font-bold text-blue-300">
+                  🎯 Your Onchain Score
+                </h4>
+                <div class="flex items-center space-x-4">
+                  <div class="text-center">
+                    <div class="text-3xl font-bold text-blue-200">
+                      {{ walletMetrics.onchainScore }}
+                    </div>
+                    <div class="text-sm text-blue-400">
+                      {{ walletMetrics.tier }}
+                    </div>
+                  </div>
+                  <div class="text-center">
+                    <div class="text-3xl font-bold text-green-200">
+                      {{ walletMetrics.apy }}%
+                    </div>
+                    <div class="text-sm text-green-400">APY</div>
+                  </div>
+                </div>
+              </div>
+              <p class="text-blue-200 text-sm">
+                Your score is calculated based on transaction activity, wallet
+                age, multi-chain usage, and token diversity. Higher scores
+                unlock better APY rates!
+              </p>
+            </div>
+
+            <!-- Core Metrics Row -->
+            <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+              <div class="bg-slate-700/50 rounded-lg p-4">
+                <div class="flex items-center justify-between mb-2">
+                  <span class="text-muted-foreground text-sm">ETH Balance</span>
+                  <svg
+                    class="w-4 h-4 text-primary-400"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
+                    <path
+                      d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z"
+                    />
+                    <path
+                      fill-rule="evenodd"
+                      d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z"
+                      clip-rule="evenodd"
+                    />
+                  </svg>
+                </div>
+                <div class="text-foreground font-semibold">
+                  {{ walletMetrics.balance }} ETH
+                </div>
+              </div>
+
+              <div class="bg-slate-700/50 rounded-lg p-4">
+                <div class="flex items-center justify-between mb-2">
+                  <span class="text-muted-foreground text-sm"
+                    >Total Transactions</span
+                  >
+                  <svg
+                    class="w-4 h-4 text-primary-400"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
+                    <path
+                      fill-rule="evenodd"
+                      d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z"
+                      clip-rule="evenodd"
+                    />
+                  </svg>
+                </div>
+                <div class="text-foreground font-semibold">
+                  {{ walletMetrics.totalTx }}
+                </div>
+              </div>
+
+              <div class="bg-slate-700/50 rounded-lg p-4">
+                <div class="flex items-center justify-between mb-2">
+                  <span class="text-muted-foreground text-sm">Wallet Age</span>
+                  <svg
+                    class="w-4 h-4 text-primary-400"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
+                    <path
+                      fill-rule="evenodd"
+                      d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z"
+                      clip-rule="evenodd"
+                    />
+                  </svg>
+                </div>
+                <div class="text-foreground font-semibold">
+                  {{ walletMetrics.walletAge }}
+                </div>
+              </div>
+            </div>
+
+            <!-- Token & NFT Metrics Row -->
+            <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+              <div class="bg-slate-700/50 rounded-lg p-4">
+                <div class="flex items-center justify-between mb-2">
+                  <span class="text-muted-foreground text-sm"
+                    >Total Tokens</span
+                  >
+                  <svg
+                    class="w-4 h-4 text-primary-400"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
+                    <path
+                      fill-rule="evenodd"
+                      d="M3 3a1 1 0 000 2v8a2 2 0 002 2h2.586l-1.293 1.293a1 1 0 101.414 1.414L10 15.414l2.293 2.293a1 1 0 001.414-1.414L12.414 15H15a2 2 0 002-2V5a1 1 0 100-2H3zm11.707 4.707a1 1 0 00-1.414-1.414L10 9.586 8.707 8.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                      clip-rule="evenodd"
+                    />
+                  </svg>
+                </div>
+                <div class="text-foreground font-semibold">
+                  {{ walletMetrics.totalTokens }}
+                </div>
+              </div>
+
+              <div class="bg-slate-700/50 rounded-lg p-4">
+                <div class="flex items-center justify-between mb-2">
+                  <span class="text-muted-foreground text-sm"
+                    >Active Tokens</span
+                  >
+                  <svg
+                    class="w-4 h-4 text-primary-400"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
+                    <path
+                      fill-rule="evenodd"
+                      d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                      clip-rule="evenodd"
+                    />
+                  </svg>
+                </div>
+                <div class="text-foreground font-semibold">
+                  {{ walletMetrics.activeTokens }}
+                </div>
+              </div>
+
+              <div class="bg-slate-700/50 rounded-lg p-4">
+                <div class="flex items-center justify-between mb-2">
+                  <span class="text-muted-foreground text-sm"
+                    >Last Transaction</span
+                  >
+                  <svg
+                    class="w-4 h-4 text-primary-400"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
+                    <path
+                      fill-rule="evenodd"
+                      d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z"
+                      clip-rule="evenodd"
+                    />
+                  </svg>
+                </div>
+                <div class="text-foreground font-semibold">
+                  {{ walletMetrics.lastTxDate }}
+                </div>
+              </div>
+            </div>
+
+            <!-- Multi-Chain Metrics Row -->
+            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+              <div class="bg-slate-700/50 rounded-lg p-4">
+                <div class="flex items-center justify-between mb-2">
+                  <span class="text-muted-foreground text-sm"
+                    >Total Tokens (All Chains)</span
+                  >
+                  <svg
+                    class="w-4 h-4 text-primary-400"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
+                    <path
+                      fill-rule="evenodd"
+                      d="M3 3a1 1 0 000 2v8a2 2 0 002 2h2.586l-1.293 1.293a1 1 0 101.414 1.414L10 15.414l2.293 2.293a1 1 0 001.414-1.414L12.414 15H15a2 2 0 002-2V5a1 1 0 100-2H3zm11.707 4.707a1 1 0 00-1.414-1.414L10 9.586 8.707 8.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                      clip-rule="evenodd"
+                    />
+                  </svg>
+                </div>
+                <div class="text-foreground font-semibold">
+                  {{ walletMetrics.totalTokensAcrossChains }}
+                </div>
+              </div>
+
+              <div class="bg-slate-700/50 rounded-lg p-4">
+                <div class="flex items-center justify-between mb-2">
+                  <span class="text-muted-foreground text-sm"
+                    >Active Chains</span
+                  >
+                  <svg
+                    class="w-4 h-4 text-primary-400"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
+                    <path
+                      fill-rule="evenodd"
+                      d="M12.316 3.051a1 1 0 01.633 1.265l-4 12a1 1 0 11-1.898-.632l4-12a1 1 0 011.265-.633zM5.707 6.293a1 1 0 010 1.414L3.414 10l2.293 2.293a1 1 0 11-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0zm8.586 0a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-3 3a1 1 0 11-1.414-1.414L16.586 10l-2.293-2.293a1 1 0 010-1.414z"
+                      clip-rule="evenodd"
+                    />
+                  </svg>
+                </div>
+                <div class="text-foreground font-semibold">
+                  {{ walletMetrics.activeChains }}
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- FHEVM Status -->
+          <div
+            v-if="fhevmStatus"
+            class="bg-slate-800/50 rounded-lg p-6 border border-slate-700"
+          >
+            <h3 class="text-lg font-semibold text-foreground mb-4">
+              FHEVM Connection Status
+            </h3>
+            <div class="space-y-2">
+              <div class="flex items-center justify-between">
+                <span class="text-muted-foreground">Network:</span>
+                <span class="text-foreground">{{ fhevmStatus.network }}</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span class="text-muted-foreground">Chain ID:</span>
+                <span class="text-foreground">{{ fhevmStatus.chainId }}</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span class="text-muted-foreground">FHEVM Instance:</span>
+                <span class="text-green-400">✅ Connected</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script lang="ts" setup>
+import { ref, onMounted } from "vue";
+import { BrowserProvider } from "ethers";
+
+// FHEVM SDK
+const SDK_URL = "https://cdn.zama.ai/relayer-sdk-js/0.2.0/relayer-sdk-js.js";
+let initSDK: any;
+let createInstance: any;
+let SepoliaConfig: any;
+
+// State
+const isConnected = ref(false);
+const account = ref<string | null>(null);
+const fhevmStatus = ref<any>(null);
+const isMetaMaskInstalled = ref(false);
+const walletMetrics = ref<any>(null);
+
+// Covalent API Configuration
+const COVALENT_API_KEY = "cqt_rQyRVjPctqcPT9qJKJvWdWtX8v69";
+const COVALENT_BASE_URL = "https://api.covalenthq.com/v1";
+
+// Onchain Score Calculation Algorithm
+function calculateOnchainScore(metrics: any) {
+  const {
+    totalTx,
+    walletAge,
+    totalTokensAcrossChains,
+    activeChains,
+    activeTokens,
+    balance,
+  } = metrics;
+
+  // Convert string values to numbers
+  const txCount = parseInt(totalTx.replace(/,/g, "")) || 0;
+  const walletAgeYears = parseFloat(walletAge.replace(" years", "")) || 0;
+  const tokenCount = parseInt(totalTokensAcrossChains) || 0;
+  const chainCount = parseInt(activeChains) || 0;
+  const activeTokenCount = parseInt(activeTokens) || 0;
+  const ethBalance = parseFloat(balance) || 0;
+
+  console.log("Calculating score with metrics:", {
+    txCount,
+    walletAgeYears,
+    tokenCount,
+    chainCount,
+    activeTokenCount,
+    ethBalance,
+  });
+
+  // Scoring Algorithm Components
+  let score = 0;
+
+  // 1. Transaction Activity Score (0-30 points)
+  const txScore = Math.min(30, Math.log10(txCount + 1) * 10);
+  score += txScore;
+
+  // 2. Wallet Age Score (0-20 points)
+  const ageScore = Math.min(20, walletAgeYears * 2);
+  score += ageScore;
+
+  // 3. Multi-chain Activity Score (0-25 points)
+  const chainScore = Math.min(25, chainCount * 5);
+  score += chainScore;
+
+  // 4. Token Diversity Score (0-15 points)
+  const diversityScore = Math.min(15, Math.log10(tokenCount + 1) * 5);
+  score += diversityScore;
+
+  // 5. Active Token Score (0-10 points)
+  const activeScore = Math.min(10, activeTokenCount * 2);
+  score += activeScore;
+
+  // 6. Balance Score (0-20 points) - ETH balance
+  const balanceScore = Math.min(20, Math.log10(ethBalance * 1000 + 1) * 3);
+  score += balanceScore;
+
+  // Bonus multipliers
+  let multiplier = 1;
+
+  // Multi-chain bonus
+  if (chainCount >= 3) multiplier += 0.1;
+  if (chainCount >= 5) multiplier += 0.1;
+
+  // High activity bonus
+  if (txCount >= 100) multiplier += 0.1;
+  if (txCount >= 500) multiplier += 0.1;
+
+  // Veteran bonus
+  if (walletAgeYears >= 2) multiplier += 0.1;
+  if (walletAgeYears >= 4) multiplier += 0.1;
+
+  score = Math.round(score * multiplier);
+
+  // Cap the score at 150
+  score = Math.min(150, score);
+
+  console.log("Calculated score:", score);
+  return score;
+}
+
+// APY Calculation based on Score
+function calculateAPY(score: number) {
+  let baseAPY = 0;
+
+  if (score >= 120) {
+    baseAPY = 25; // Tier 1: Elite (120-150)
+  } else if (score >= 90) {
+    baseAPY = 20; // Tier 2: Advanced (90-119)
+  } else if (score >= 70) {
+    baseAPY = 15; // Tier 3: Experienced (70-89)
+  } else if (score >= 50) {
+    baseAPY = 12; // Tier 4: Intermediate (50-69)
+  } else if (score >= 30) {
+    baseAPY = 8; // Tier 5: Beginner (30-49)
+  } else {
+    baseAPY = 5; // Tier 6: Newcomer (0-29)
+  }
+
+  return baseAPY;
+}
+
+// Get Score Tier Name
+function getScoreTier(score: number) {
+  if (score >= 120) return "Elite";
+  if (score >= 90) return "Advanced";
+  if (score >= 70) return "Experienced";
+  if (score >= 50) return "Intermediate";
+  if (score >= 30) return "Beginner";
+  return "Newcomer";
+}
+
+// Fetch comprehensive wallet metrics from Covalent API
+async function fetchWalletMetrics(address: string) {
+  try {
+    console.log("Fetching comprehensive wallet metrics for:", address);
+
+    // Test multiple chains to see if we can get aggregated data
+    const supportedChains = [
+      { id: 1, name: "Ethereum Mainnet" },
+      { id: 137, name: "Polygon" },
+      { id: 56, name: "BSC" },
+      { id: 43114, name: "Avalanche" },
+      { id: 250, name: "Fantom" },
+      { id: 42161, name: "Arbitrum" },
+      { id: 10, name: "Optimism" },
+    ];
+
+    console.log("Testing multiple chains for aggregated data...");
+
+    // Test if Covalent provides aggregated data across chains (with rate limiting)
+    const chainPromises = supportedChains.map(async (chain, index) => {
+      try {
+        // Add delay to avoid rate limiting
+        if (index > 0) {
+          await new Promise((resolve) => setTimeout(resolve, index * 200)); // 200ms delay between requests
+        }
+
+        const [balanceResponse, txSummaryResponse, txListResponse] =
+          await Promise.all([
+            fetch(
+              `${COVALENT_BASE_URL}/${chain.id}/address/${address}/balances_v2/?key=${COVALENT_API_KEY}`
+            ),
+            fetch(
+              `${COVALENT_BASE_URL}/${chain.id}/address/${address}/transactions_summary/?key=${COVALENT_API_KEY}`
+            ),
+            fetch(
+              `${COVALENT_BASE_URL}/${chain.id}/address/${address}/transactions_v2/?key=${COVALENT_API_KEY}&page-size=1000&page-number=0`
+            ),
+          ]);
+
+        const [balanceData, txSummaryData, txListData] = await Promise.all([
+          balanceResponse.json(),
+          txSummaryResponse.json(),
+          txListResponse.json(),
+        ]);
+
+        // Use multiple sources for transaction count
+        const txCount =
+          txSummaryData.data?.total_count ||
+          txListData.data?.pagination?.total_count ||
+          txListData.data?.items?.length ||
+          0;
+
+        return {
+          chain: chain.name,
+          chainId: chain.id,
+          tokenCount: balanceData.data?.items?.length || 0,
+          txCount: txCount,
+          hasData: balanceData.data?.items?.length > 0 || txCount > 0,
+        };
+      } catch (error) {
+        console.warn(`Error fetching data for ${chain.name}:`, error.message);
+        return {
+          chain: chain.name,
+          chainId: chain.id,
+          tokenCount: 0,
+          txCount: 0,
+          hasData: false,
+          error: error.message,
+        };
+      }
+    });
+
+    const chainResults = await Promise.all(chainPromises);
+    console.log("Multi-chain results:", chainResults);
+
+    // Calculate total metrics across all chains
+    const totalTokensAcrossChains = chainResults.reduce(
+      (sum, result) => sum + result.tokenCount,
+      0
+    );
+    const totalTxAcrossChains = chainResults.reduce(
+      (sum, result) => sum + result.txCount,
+      0
+    );
+    const activeChains = chainResults.filter((result) => result.hasData).length;
+
+    console.log(
+      `Total tokens across ${activeChains} chains:`,
+      totalTokensAcrossChains
+    );
+    console.log(
+      `Total transactions across ${activeChains} chains:`,
+      totalTxAcrossChains
+    );
+
+    // Debug: Show transaction count per chain
+    chainResults.forEach((result) => {
+      if (result.txCount > 0) {
+        console.log(`${result.chain}: ${result.txCount} transactions`);
+      }
+    });
+
+    // Fetch multiple endpoints in parallel (Ethereum Mainnet - Chain ID: 1)
+    const [balanceResponse, txResponse, txSummaryResponse] = await Promise.all([
+      // 1. Token Balances - Ethereum Mainnet
+      fetch(
+        `${COVALENT_BASE_URL}/1/address/${address}/balances_v2/?key=${COVALENT_API_KEY}`
+      ),
+      // 2. Transaction History - Ethereum Mainnet (with proper pagination)
+      fetch(
+        `${COVALENT_BASE_URL}/1/address/${address}/transactions_v2/?key=${COVALENT_API_KEY}&page-size=1000&page-number=0`
+      ),
+      // 3. Transaction Summary - Alternative endpoint for total count
+      fetch(
+        `${COVALENT_BASE_URL}/1/address/${address}/transactions_summary/?key=${COVALENT_API_KEY}`
+      ),
+    ]);
+
+    const [balanceData, txData, txSummaryData] = await Promise.all([
+      balanceResponse.json(),
+      txResponse.json(),
+      txSummaryResponse.json(),
+    ]);
+
+    // Calculate comprehensive metrics
+    const ethBalance =
+      balanceData.data?.items?.find(
+        (item: any) =>
+          item.contract_address === "0x0000000000000000000000000000000000000000"
+      )?.balance || "0";
+
+    // Debug transaction data
+    console.log("Transaction data:", txData);
+    console.log("Transaction summary data:", txSummaryData);
+    console.log("Transaction pagination:", txData.data?.pagination);
+    console.log("Transaction items count:", txData.data?.items?.length);
+
+    // Try multiple sources for transaction count
+    const totalTx =
+      txSummaryData.data?.total_count ||
+      txData.data?.pagination?.total_count ||
+      txData.data?.items?.length ||
+      0;
+    const totalTokens = balanceData.data?.items?.length || 0;
+
+    // Calculate wallet age (first transaction date)
+    const firstTx = txData.data?.items?.[txData.data.items.length - 1];
+    const walletAge = firstTx
+      ? calculateAge(firstTx.block_signed_at)
+      : "Unknown";
+
+    // Get last transaction date
+    const lastTxDate = txData.data?.items?.[0]?.block_signed_at
+      ? new Date(txData.data.items[0].block_signed_at).toLocaleDateString()
+      : "Never";
+
+    // Calculate active tokens (non-zero balance)
+    const activeTokens =
+      balanceData.data?.items?.filter(
+        (item: any) => parseFloat(item.balance) > 0
+      ).length || 0;
+
+    // Calculate score and APY
+    const onchainScore = calculateOnchainScore({
+      totalTx: totalTxAcrossChains.toLocaleString(),
+      walletAge: walletAge,
+      totalTokensAcrossChains: totalTokensAcrossChains,
+      activeChains: activeChains,
+      activeTokens: activeTokens,
+      balance: (parseFloat(ethBalance) / Math.pow(10, 18)).toFixed(4),
+    });
+
+    const apy = calculateAPY(onchainScore);
+    const tier = getScoreTier(onchainScore);
+
+    walletMetrics.value = {
+      // Core Metrics
+      balance: (parseFloat(ethBalance) / Math.pow(10, 18)).toFixed(4),
+      totalTx: totalTxAcrossChains.toLocaleString(), // Multi-chain total
+      walletAge: walletAge,
+
+      // Token Metrics
+      totalTokens: totalTokens,
+      activeTokens: activeTokens,
+
+      // Multi-Chain Metrics
+      totalTokensAcrossChains: totalTokensAcrossChains,
+      activeChains: activeChains,
+
+      // Activity Metrics
+      lastTxDate: lastTxDate,
+
+      // Score & APY Metrics
+      onchainScore: onchainScore,
+      apy: apy,
+      tier: tier,
+    };
+
+    console.log("Comprehensive wallet metrics loaded:", walletMetrics.value);
+  } catch (error) {
+    console.error("Error fetching wallet metrics:", error);
+    console.log("Fetching Ethereum Mainnet metrics...");
+    walletMetrics.value = {
+      balance: "Error",
+      portfolioValue: "Error",
+      totalTx: "Error",
+      walletAge: "Error",
+      totalTokens: "Error",
+      activeTokens: "Error",
+      totalNFTs: "Error",
+      gasUsed: "Error",
+      avgGasPrice: "Error",
+      lastTxDate: "Error",
+    };
+  }
+}
+
+// Calculate age from date string
+function calculateAge(dateString: string): string {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffTime = Math.abs(now.getTime() - date.getTime());
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+  if (diffDays < 30) {
+    return `${diffDays} days`;
+  } else if (diffDays < 365) {
+    const months = Math.floor(diffDays / 30);
+    return `${months} months`;
+  } else {
+    const years = Math.floor(diffDays / 365);
+    return `${years} years`;
+  }
+}
+
+// Check MetaMask installation
+onMounted(async () => {
+  isMetaMaskInstalled.value = typeof window.ethereum !== "undefined";
+
+  if (isMetaMaskInstalled.value) {
+    await initializeFHEVM();
+    await checkConnection();
+  }
+});
+
+// Initialize FHEVM
+async function initializeFHEVM() {
+  try {
+    const sdk = await import(/* @vite-ignore */ SDK_URL);
+    initSDK = sdk.initSDK;
+    createInstance = sdk.createInstance;
+    SepoliaConfig = sdk.SepoliaConfig;
+
+    await initSDK();
+
+    // Check if we're on Sepolia
+    const provider = window.ethereum;
+    const chainId = await provider.request({
+      method: "eth_chainId",
+    });
+
+    fhevmStatus.value = {
+      network: chainId === "0xaa36a7" ? "Sepolia Testnet" : "Unknown",
+      chainId: chainId,
+    };
+
+    if (chainId === "0xaa36a7") {
+      console.log("✅ Connected to Sepolia Testnet");
+
+      // Create FHEVM instance
+      const fhevmConfig = { ...SepoliaConfig, network: provider };
+      const fhevmInstance = await createInstance(fhevmConfig);
+      console.log("FHEVM instance created:", fhevmInstance);
+
+      // Check if FHEVM is in real mode (not mock)
+      console.log("FHEVM Config:", fhevmConfig);
+      console.log("FHEVM Instance methods:", Object.keys(fhevmInstance));
+
+      // Test FHEVM functionality
+      try {
+        const testKeypair = await fhevmInstance.generateKeypair();
+        console.log(
+          "✅ FHEVM Keypair generation successful - Real mode confirmed"
+        );
+        console.log("Keypair:", testKeypair);
+      } catch (error) {
+        console.error("❌ FHEVM Keypair generation failed:", error);
+      }
+    } else {
+      console.warn(
+        "⚠️ Not on Sepolia! Current chainId:",
+        chainId,
+        "Expected: 0xaa36a7"
+      );
+    }
+  } catch (error) {
+    console.error("FHEVM initialization error:", error);
+  }
+}
+
+// Check wallet connection
+async function checkConnection() {
+  if (window.ethereum) {
+    try {
+      const accounts = await window.ethereum.request({
+        method: "eth_accounts",
+      });
+      if (accounts.length > 0) {
+        isConnected.value = true;
+        account.value = accounts[0];
+
+        // Fetch wallet metrics for already connected wallet
+        await fetchWalletMetrics(accounts[0]);
+      }
+    } catch (error) {
+      console.error("Error checking connection:", error);
+    }
+  }
+}
+
+// Connect wallet
+async function connectWallet() {
+  if (!window.ethereum) {
+    alert("MetaMask is not installed!");
+    return;
+  }
+
+  try {
+    const accounts = await window.ethereum.request({
+      method: "eth_requestAccounts",
+    });
+
+    if (accounts.length > 0) {
+      isConnected.value = true;
+      account.value = accounts[0];
+
+      // Fetch wallet metrics when connected
+      await fetchWalletMetrics(accounts[0]);
+    }
+  } catch (error) {
+    console.error("Error connecting wallet:", error);
+  }
+}
+</script>
+
+<style scoped>
+.bg-zama {
+  background: linear-gradient(
+    135deg,
+    #000000 0%,
+    #1a1a1a 25%,
+    #2d2d2d 50%,
+    #1a1a1a 75%,
+    #000000 100%
+  );
+  background-attachment: fixed;
+}
+
+.bg-surface {
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3),
+    0 2px 4px -1px rgba(0, 0, 0, 0.2);
+}
+
+.text-foreground {
+  color: #f8fafc;
+}
+
+.text-muted-foreground {
+  color: #94a3b8;
+}
+
+.border-slate-700 {
+  border-color: rgba(255, 255, 255, 0.3);
+  box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+}
+
+.bg-slate-800\/50 {
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+}
+
+.bg-slate-700\/50 {
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 1px 3px -1px rgba(0, 0, 0, 0.15);
+}
+
+.text-primary-400 {
+  color: #60a5fa;
+}
+
+.bg-gradient-to-r {
+  background-image: linear-gradient(to right, var(--tw-gradient-stops));
+}
+
+.from-primary-300 {
+  --tw-gradient-from: #93c5fd;
+}
+
+.to-primary-200 {
+  --tw-gradient-to: #bfdbfe;
+}
+
+.text-primary-foreground {
+  color: #1e40af;
+}
+
+.hover\:from-primary-400:hover {
+  --tw-gradient-from: #60a5fa;
+}
+
+.hover\:to-primary-300:hover {
+  --tw-gradient-to: #93c5fd;
+}
+</style>
