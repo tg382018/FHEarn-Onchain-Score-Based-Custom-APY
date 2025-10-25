@@ -1019,6 +1019,9 @@ async function fetchWalletMetrics(address: string) {
     };
 
     console.log("Comprehensive wallet metrics loaded:", walletMetrics.value);
+
+    // Check stake status after loading metrics
+    await checkStakeStatus(address);
   } catch (error: any) {
     console.error("Error fetching wallet metrics:", error);
     console.log("Fetching Ethereum Mainnet metrics...");
@@ -1054,6 +1057,192 @@ function calculateAge(dateString: string): string {
   } else {
     const years = Math.floor(diffDays / 365);
     return `${years} years`;
+  }
+}
+
+// Check stake status from contract
+async function checkStakeStatus(userAddress: string) {
+  try {
+    console.log("🔍 Checking stake status for:", userAddress);
+
+    if (!fhevmStatus.value?.instance) {
+      console.log("❌ FHEVM not initialized, skipping stake check");
+      return;
+    }
+
+    const contractAddress = "0x7E26fF8589cd8fAbd2E1Db455b71dc15e91f5647";
+    const contractABI = [
+      {
+        inputs: [{ internalType: "address", name: "user", type: "address" }],
+        name: "getStakeInfo",
+        outputs: [
+          { internalType: "euint64", name: "", type: "bytes32" },
+          { internalType: "euint64", name: "", type: "bytes32" },
+          { internalType: "euint64", name: "", type: "bytes32" },
+          { internalType: "bool", name: "", type: "bool" },
+        ],
+        stateMutability: "view",
+        type: "function",
+      },
+    ];
+
+    // Create provider and signer
+    const provider = new ethers.BrowserProvider(window.ethereum);
+    const signer = await provider.getSigner();
+
+    const contract = new ethers.Contract(
+      contractAddress,
+      contractABI,
+      provider
+    );
+
+    // Get encrypted stake info from contract
+    const onchainStakeInfo = await contract.getStakeInfo(userAddress);
+    console.log("📊 Onchain stake info:", onchainStakeInfo);
+
+    // Check if user has active stake (isActive is the 4th element, index 3)
+    const isActive = onchainStakeInfo[3];
+
+    console.log("🔍 Stake Status Check:");
+    console.log("  👤 User Address:", userAddress);
+    console.log("  📋 Contract Address:", contractAddress);
+    console.log("  ✅ Has Active Stake:", isActive);
+
+    if (isActive) {
+      console.log("✅ Active stake found onchain");
+
+      // Decrypt the encrypted values using FHEVM
+      try {
+        const encryptedAmount = onchainStakeInfo[0];
+        const encryptedTimestamp = onchainStakeInfo[1];
+        const encryptedAPY = onchainStakeInfo[2];
+
+        // Create EIP712 for decryption
+        const eip712 = fhevmStatus.value.instance.createEIP712({
+          domain: {
+            name: "FHEVM",
+            version: "1",
+            chainId: 11155111, // Sepolia
+            verifyingContract: contractAddress,
+          },
+          types: {
+            Reencrypt: [
+              { name: "publicKey", type: "bytes" },
+              { name: "ciphertext", type: "bytes" },
+            ],
+          },
+          primaryType: "Reencrypt",
+        });
+
+        // Decrypt amount
+        const decryptedAmount = await fhevmStatus.value.instance.userDecrypt(
+          encryptedAmount,
+          eip712,
+          signer
+        );
+
+        // Decrypt timestamp
+        const decryptedTimestamp = await fhevmStatus.value.instance.userDecrypt(
+          encryptedTimestamp,
+          eip712,
+          signer
+        );
+
+        // Decrypt APY
+        const decryptedAPY = await fhevmStatus.value.instance.userDecrypt(
+          encryptedAPY,
+          eip712,
+          signer
+        );
+
+        // Convert to readable values
+        const stakeAmountETH = (
+          parseFloat(decryptedAmount.toString()) / Math.pow(10, 18)
+        ).toFixed(4);
+        const stakeTimestamp = parseInt(decryptedTimestamp.toString()) * 1000;
+        const stakeDate = new Date(stakeTimestamp).toLocaleDateString();
+        const stakeAPY = parseFloat(decryptedAPY.toString());
+
+        console.log("🔓 Decrypted Stake Details:");
+        console.log("  💰 Raw Amount (wei):", decryptedAmount.toString());
+        console.log("  💰 Stake Amount (ETH):", stakeAmountETH, "ETH");
+        console.log("  📅 Raw Timestamp:", decryptedTimestamp.toString());
+        console.log("  📅 Stake Date:", stakeDate);
+        console.log("  📈 Raw APY:", decryptedAPY.toString());
+        console.log("  📈 APY Rate:", stakeAPY, "%");
+
+        // Update stake info
+        stakeInfo.value = {
+          isActive: true,
+          amount: stakeAmountETH,
+          rewards: "0.0000", // Will be calculated later
+          stakeDate: stakeDate,
+          apy: stakeAPY,
+        };
+
+        console.log("💾 Final Stake Info Updated:");
+        console.log("  ✅ Is Active:", stakeInfo.value.isActive);
+        console.log("  💰 Amount:", stakeInfo.value.amount, "ETH");
+        console.log("  🎁 Rewards:", stakeInfo.value.rewards, "ETH");
+        console.log("  📅 Date:", stakeInfo.value.stakeDate);
+        console.log("  📈 APY:", stakeInfo.value.apy, "%");
+
+        // Start reward updates
+        startRewardUpdates();
+      } catch (decryptError: any) {
+        console.error("❌ Failed to decrypt FHEVM values:", decryptError);
+
+        // Clear corrupted localStorage data
+        localStorage.removeItem("fhearn_stake_info");
+
+        // Reset stake info to inactive state
+        stakeInfo.value = {
+          isActive: false,
+          amount: "0",
+          rewards: "0",
+          stakeDate: "",
+          apy: 0,
+        };
+      }
+    } else {
+      console.log("❌ No active stake found onchain");
+      console.log("🔍 Stake Status Details:");
+      console.log("  👤 User Address:", userAddress);
+      console.log("  📋 Contract Address:", contractAddress);
+      console.log("  ❌ Has Active Stake:", false);
+      console.log("  💡 Action: Will show staking interface");
+
+      // Clear localStorage and reset stake info
+      localStorage.removeItem("fhearn_stake_info");
+      stakeInfo.value = {
+        isActive: false,
+        amount: "0",
+        rewards: "0",
+        stakeDate: "",
+        apy: 0,
+      };
+
+      console.log("🧹 Cleared localStorage and reset stake info");
+    }
+  } catch (error: any) {
+    console.error("❌ Error checking stake status:", error);
+    console.log("🔍 Error Details:");
+    console.log("  👤 User Address:", userAddress);
+    console.log("  📋 Contract Address: 0x7E26fF8589cd8fAbd2E1Db455b71dc15e91f5647");
+    console.log("  ⚠️ Error Message:", error.message);
+    console.log("  💡 Action: Will reset to inactive state");
+
+    // On error, clear localStorage and reset to inactive state
+    localStorage.removeItem("fhearn_stake_info");
+    stakeInfo.value = {
+      isActive: false,
+      amount: "0",
+      rewards: "0",
+      stakeDate: "",
+      apy: 0,
+    };
+
+    console.log("🧹 Error recovery: Cleared localStorage and reset stake info");
   }
 }
 
