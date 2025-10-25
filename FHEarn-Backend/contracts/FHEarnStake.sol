@@ -114,6 +114,11 @@ contract FHEarnStake is SepoliaConfig {
             isActive: true
         });
         
+        // Allow user to decrypt their own stake data
+        FHE.allow(amount, msg.sender);
+        FHE.allow(currentTime, msg.sender);
+        FHE.allow(apyRate, msg.sender);
+        
         emit StakeDeposited(msg.sender, msg.value, block.timestamp);
     }
     

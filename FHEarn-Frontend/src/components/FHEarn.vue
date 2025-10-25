@@ -1070,7 +1070,7 @@ async function checkStakeStatus(userAddress: string) {
       return;
     }
 
-    const contractAddress = "0x7E26fF8589cd8fAbd2E1Db455b71dc15e91f5647";
+    const contractAddress = "0xc10c87b2D5465da90e61aB64fe71546CbdDc314e";
     const contractABI = [
       {
         inputs: [{ internalType: "address", name: "user", type: "address" }],
@@ -1228,7 +1228,9 @@ async function checkStakeStatus(userAddress: string) {
     console.error("❌ Error checking stake status:", error);
     console.log("🔍 Error Details:");
     console.log("  👤 User Address:", userAddress);
-    console.log("  📋 Contract Address: 0x7E26fF8589cd8fAbd2E1Db455b71dc15e91f5647");
+    console.log(
+      "  📋 Contract Address: 0xc10c87b2D5465da90e61aB64fe71546CbdDc314e"
+    );
     console.log("  ⚠️ Error Message:", error.message);
     console.log("  💡 Action: Will reset to inactive state");
 
@@ -1317,7 +1319,7 @@ async function stakeETH() {
     console.log("Amount:", amount, "APY:", apy);
 
     // Get contract instance
-    const contractAddress = "0x7E26fF8589cd8fAbd2E1Db455b71dc15e91f5647"; // ETH-based contract
+    const contractAddress = "0xc10c87b2D5465da90e61aB64fe71546CbdDc314e"; // ETH-based contract
 
     // Validate contract address
     if (!ethers.isAddress(contractAddress)) {
