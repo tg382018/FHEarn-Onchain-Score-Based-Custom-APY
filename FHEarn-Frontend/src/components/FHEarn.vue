@@ -181,6 +181,34 @@
                 <label class="block text-sm font-medium text-green-200 mb-2">
                   Stake Amount (Sepolia ETH)
                 </label>
+                <!-- Network Status -->
+                <div
+                  v-if="
+                    fhevmStatus && fhevmStatus.network !== 'Sepolia Testnet'
+                  "
+                  class="bg-red-900/30 border border-red-500/30 rounded-lg p-4 mb-4"
+                >
+                  <div class="flex items-center justify-between">
+                    <div>
+                      <h3 class="text-red-300 font-bold">⚠️ Wrong Network</h3>
+                      <p class="text-red-200 text-sm">
+                        Current: {{ fhevmStatus.network }} ({{
+                          fhevmStatus.chainId
+                        }})
+                      </p>
+                      <p class="text-red-200 text-sm">
+                        Required: Sepolia Testnet (0xaa36a7)
+                      </p>
+                    </div>
+                    <button
+                      @click="switchToSepolia"
+                      class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg transition-colors"
+                    >
+                      Switch to Sepolia
+                    </button>
+                  </div>
+                </div>
+
                 <div class="flex space-x-2">
                   <input
                     v-model="stakeAmount"
@@ -198,16 +226,16 @@
                   </button>
                 </div>
                 <p class="text-xs text-green-300 mt-1">
-                  Your APY: {{ walletMetrics.apy }}% ({{
-                    walletMetrics.tier
-                  }}
+                  Your APY: {{ walletMetrics.apy }}% ({{ walletMetrics.tier }}
                   Tier)
                 </p>
               </div>
 
               <button
                 @click="stakeETH"
-                :disabled="!stakeAmount || stakeAmount <= 0 || isStaking"
+                :disabled="
+                  !stakeAmount || parseFloat(stakeAmount) <= 0 || isStaking
+                "
                 class="w-full bg-gradient-to-r from-green-500 to-green-400 text-white px-6 py-3 rounded-lg hover:from-green-600 hover:to-green-500 transition-all duration-200 font-medium flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <svg
@@ -298,7 +326,7 @@
               <div class="flex space-x-3">
                 <button
                   @click="claimRewards"
-                  :disabled="isClaiming || stakeInfo.rewards <= 0"
+                  :disabled="isClaiming || parseFloat(stakeInfo.rewards) <= 0"
                   class="flex-1 bg-gradient-to-r from-yellow-500 to-yellow-400 text-white px-4 py-2 rounded-lg hover:from-yellow-600 hover:to-yellow-500 transition-all duration-200 font-medium flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <svg
@@ -851,7 +879,7 @@ async function fetchWalletMetrics(address: string) {
           txCount: txCount,
           hasData: balanceData.data?.items?.length > 0 || txCount > 0,
         };
-      } catch (error) {
+      } catch (error: any) {
         console.warn(`Error fetching data for ${chain.name}:`, error.message);
         return {
           chain: chain.name,
@@ -991,7 +1019,7 @@ async function fetchWalletMetrics(address: string) {
     };
 
     console.log("Comprehensive wallet metrics loaded:", walletMetrics.value);
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error fetching wallet metrics:", error);
     console.log("Fetching Ethereum Mainnet metrics...");
     walletMetrics.value = {
@@ -1029,6 +1057,48 @@ function calculateAge(dateString: string): string {
   }
 }
 
+// Switch to Sepolia Network
+async function switchToSepolia() {
+  try {
+    await window.ethereum.request({
+      method: "wallet_switchEthereumChain",
+      params: [{ chainId: "0xaa36a7" }], // Sepolia chainId
+    });
+    console.log("✅ Switched to Sepolia Testnet");
+    return true;
+  } catch (switchError: any) {
+    // This error code indicates that the chain has not been added to MetaMask
+    if (switchError.code === 4902) {
+      try {
+        await window.ethereum.request({
+          method: "wallet_addEthereumChain",
+          params: [
+            {
+              chainId: "0xaa36a7",
+              chainName: "Sepolia Testnet",
+              nativeCurrency: {
+                name: "SepoliaETH",
+                symbol: "ETH",
+                decimals: 18,
+              },
+              rpcUrls: ["https://eth-sepolia.public.blastapi.io"],
+              blockExplorerUrls: ["https://sepolia.etherscan.io"],
+            },
+          ],
+        });
+        console.log("✅ Added and switched to Sepolia Testnet");
+        return true;
+      } catch (addError: any) {
+        console.error("❌ Failed to add Sepolia network:", addError);
+        return false;
+      }
+    } else {
+      console.error("❌ Failed to switch to Sepolia:", switchError);
+      return false;
+    }
+  }
+}
+
 // Check MetaMask installation
 // Stake Functions
 function setMaxAmount() {
@@ -1058,7 +1128,17 @@ async function stakeETH() {
     console.log("Amount:", amount, "APY:", apy);
 
     // Get contract instance
-    const contractAddress = "0x5F1AC27c347e5933FdAbF2CF9E8F827901B0797A"; // Deployed FHEarnStake
+    const contractAddress = "0x82E8A45f148F705FdA986452B034B0Fa8F346124"; // Deployed FHEarnStake
+
+    // Validate contract address
+    if (!ethers.isAddress(contractAddress)) {
+      throw new Error(`Invalid contract address: ${contractAddress}`);
+    }
+
+    // Ensure address is in checksum format
+    const checksumAddress = ethers.getAddress(contractAddress);
+    console.log("Using contract address:", checksumAddress);
+    console.log("Address validation passed");
     const contractABI = [
       {
         inputs: [
@@ -1081,24 +1161,130 @@ async function stakeETH() {
       },
     ];
 
-    // Create contract instance
-    const provider = new ethers.BrowserProvider(window.ethereum);
-    const signer = await provider.getSigner();
-    const contract = new ethers.Contract(contractAddress, contractABI, signer);
+    // Create contract instance using FHEVM SDK method
+    console.log("Creating contract instance...");
+
+    // Try to create contract using FHEVM SDK
+    let contract;
+    try {
+      // Method 1: Use FHEVM SDK's contract creation
+      if (fhevmStatus.value.instance.createContract) {
+        contract = fhevmStatus.value.instance.createContract(
+          checksumAddress,
+          contractABI
+        );
+      } else {
+        // Method 2: Use ethers directly but with FHEVM-compatible approach
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        const signer = await provider.getSigner();
+        contract = new ethers.Contract(checksumAddress, contractABI, signer);
+      }
+      console.log("Contract instance created successfully");
+    } catch (contractError: any) {
+      console.error("Contract creation error:", contractError);
+      throw new Error(
+        `Failed to create contract instance: ${contractError.message}`
+      );
+    }
 
     // Encrypt stake amount and APY using FHEVM
-    const encryptedAmount = fhevmStatus.value.instance.encrypt64(
-      Math.floor(amount * 1e18)
+    console.log(
+      "FHEVM Instance methods:",
+      Object.keys(fhevmStatus.value.instance)
     );
-    const encryptedAPY = fhevmStatus.value.instance.encrypt64(apy);
 
-    // Create input proof
-    const inputProof = fhevmStatus.value.instance.generateInputProof([
-      encryptedAmount,
-      encryptedAPY,
-    ]);
+    // Try different encryption methods
+    let encryptedAmount, encryptedAPY, inputProof;
+
+    console.log("Attempting encryption...");
+
+    if (fhevmStatus.value.instance.createEncryptedInput) {
+      // Use createEncryptedInput method - Zama documentation approach
+      console.log(
+        "Using createEncryptedInput method (Zama documentation approach)"
+      );
+
+      try {
+        // Step 1: Create encrypted input with contract address and user address
+        const input = fhevmStatus.value.instance.createEncryptedInput(
+          checksumAddress,
+          account.value
+        );
+        console.log("Created encrypted input object");
+
+        // Step 2: Add values to the input
+        input.add64(Math.floor(amount * 1e18)); // Amount in wei (64-bit)
+        input.add32(apy); // APY as 32-bit integer
+        console.log("Added values to encrypted input");
+
+        // Step 3: Encrypt and get handles + proof
+        const enc = await input.encrypt();
+        console.log("Encryption completed");
+
+        // Step 4: Extract handles and proof
+        encryptedAmount = enc.handles[0]; // First handle (amount)
+        encryptedAPY = enc.handles[1]; // Second handle (APY)
+        inputProof = enc.inputProof; // Proof for both values
+
+        console.log(
+          "Encryption successful with createEncryptedInput (Zama approach)"
+        );
+        console.log("Encrypted amount handle:", encryptedAmount);
+        console.log("Encrypted APY handle:", encryptedAPY);
+        console.log("Input proof:", inputProof);
+      } catch (error: any) {
+        console.error("createEncryptedInput failed:", error.message);
+        throw error;
+      }
+    } else if (fhevmStatus.value.instance.encrypt64) {
+      console.log("Using encrypt64 method");
+      encryptedAmount = fhevmStatus.value.instance.encrypt64(
+        Math.floor(amount * 1e18)
+      );
+      encryptedAPY = fhevmStatus.value.instance.encrypt64(apy);
+      console.log("Encryption successful with encrypt64");
+    } else if (fhevmStatus.value.instance.encrypt) {
+      console.log("Using encrypt method");
+      encryptedAmount = fhevmStatus.value.instance.encrypt(
+        Math.floor(amount * 1e18)
+      );
+      encryptedAPY = fhevmStatus.value.instance.encrypt(apy);
+      console.log("Encryption successful with encrypt");
+    } else if (fhevmStatus.value.instance.ecrypt) {
+      // Note: this might be a typo in FHEVM
+      console.log("Using ecrypt method (typo)");
+      encryptedAmount = fhevmStatus.value.instance.ecrypt(
+        Math.floor(amount * 1e18)
+      );
+      encryptedAPY = fhevmStatus.value.instance.ecrypt(apy);
+      console.log("Encryption successful with ecrypt");
+    } else if (fhevmStatus.value.instance.encryptUint64) {
+      console.log("Using encryptUint64 method");
+      encryptedAmount = fhevmStatus.value.instance.encryptUint64(
+        Math.floor(amount * 1e18)
+      );
+      encryptedAPY = fhevmStatus.value.instance.encryptUint64(apy);
+      console.log("Encryption successful with encryptUint64");
+    } else {
+      throw new Error("No encryption method found on FHEVM instance");
+    }
+
+    console.log("Encrypted amount:", encryptedAmount);
+    console.log("Encrypted APY:", encryptedAPY);
+    console.log("Input proof:", inputProof);
 
     console.log("Calling real contract with encrypted data...");
+    console.log("Contract address:", checksumAddress);
+    console.log("Encrypted amount type:", typeof encryptedAmount);
+    console.log("Encrypted APY type:", typeof encryptedAPY);
+    console.log("Input proof type:", typeof inputProof);
+
+    // Validate encrypted parameters
+    if (!encryptedAmount || !encryptedAPY) {
+      throw new Error("Encryption failed - missing encrypted parameters");
+    }
+
+    console.log("All parameters validated, calling contract...");
 
     // Call the contract with real ETH
     const tx = await contract.stake(encryptedAmount, encryptedAPY, inputProof, {
@@ -1125,7 +1311,7 @@ async function stakeETH() {
     localStorage.setItem("fhearn_stake_info", JSON.stringify(stakeInfo.value));
 
     console.log("Stake successful!");
-  } catch (error) {
+  } catch (error: any) {
     console.error("Stake error:", error);
     alert("Staking failed: " + error.message);
   } finally {
@@ -1160,7 +1346,7 @@ async function claimRewards() {
     localStorage.setItem("fhearn_stake_info", JSON.stringify(stakeInfo.value));
 
     console.log("Rewards claimed successfully!");
-  } catch (error) {
+  } catch (error: any) {
     console.error("Claim error:", error);
     alert("Claim failed: " + error.message);
   } finally {
@@ -1192,7 +1378,7 @@ async function withdrawAll() {
     localStorage.removeItem("fhearn_stake_info");
 
     console.log("Withdrawal successful!");
-  } catch (error) {
+  } catch (error: any) {
     console.error("Withdrawal error:", error);
     alert("Withdrawal failed: " + error.message);
   } finally {
@@ -1266,7 +1452,23 @@ async function initializeFHEVM() {
       chainId: chainId,
     };
 
-    if (chainId === "0xaa36a7") {
+    // If not on Sepolia, try to switch
+    if (chainId !== "0xaa36a7") {
+      console.log("⚠️ Not on Sepolia Testnet, attempting to switch...");
+      const switched = await switchToSepolia();
+      if (!switched) {
+        console.error("❌ Failed to switch to Sepolia Testnet");
+        return;
+      }
+      // Re-check chainId after switch
+      const newChainId = await provider.request({ method: "eth_chainId" });
+      fhevmStatus.value = {
+        network: newChainId === "0xaa36a7" ? "Sepolia Testnet" : "Unknown",
+        chainId: newChainId,
+      };
+    }
+
+    if (fhevmStatus.value.network === "Sepolia Testnet") {
       console.log("✅ Connected to Sepolia Testnet");
 
       // Create FHEVM instance
@@ -1292,6 +1494,13 @@ async function initializeFHEVM() {
           "✅ FHEVM Keypair generation successful - Real mode confirmed"
         );
         console.log("Keypair:", testKeypair);
+
+        // Check available methods
+        console.log("FHEVM Instance methods:", Object.keys(fhevmInstance));
+        console.log(
+          "FHEVM Instance prototype:",
+          Object.getOwnPropertyNames(Object.getPrototypeOf(fhevmInstance))
+        );
       } catch (error) {
         console.error("❌ FHEVM Keypair generation failed:", error);
       }
@@ -1321,7 +1530,7 @@ async function checkConnection() {
         // Fetch wallet metrics for already connected wallet
         await fetchWalletMetrics(accounts[0]);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error checking connection:", error);
     }
   }
