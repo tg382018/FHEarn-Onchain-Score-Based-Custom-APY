@@ -17,6 +17,13 @@ contract FHEarnStake is SepoliaConfig {
     event FullWithdrawal(address indexed user, uint256 totalAmount);
     event DecryptionRequested(address indexed user, uint256 requestID, string operation);
     
+    // Debug events
+    event DebugStep1(string message);
+    event DebugStep2(string message);
+    event DebugStep3(string message);
+    event DebugStep4(string message);
+    event DebugStep5(string message);
+    
     // Structs
     struct StakeInfo {
         euint64 amount;           // Encrypted stake amount
@@ -33,10 +40,17 @@ contract FHEarnStake is SepoliaConfig {
         bool isPending;
     }
     
+    struct PendingDecryptionStruct {
+        uint256 currentRequestID;
+        bool isPendingDecryption;
+        uint256 decryptionTimestamp;
+    }
+    
     // State variables
     mapping(address => StakeInfo) private stakes;
     mapping(uint256 => PendingOperation) private pendingOperations;
     uint256 private requestCounter;
+    PendingDecryptionStruct private pendingDecryption;
     
     // Constants
     uint256 private constant SECONDS_PER_YEAR = 365 * 24 * 60 * 60;
@@ -49,7 +63,15 @@ contract FHEarnStake is SepoliaConfig {
     }
     
     modifier decryptionAvailable() {
-        require(!pendingOperations[requestCounter].isPending, "Decryption in progress");
+        // Here we make sure there are no pending decryption.
+        // In some cases the decryption request is sent but is never fulfilled.
+        // In such cases we make sure the last decryption request was more than 5 minutes ago, to not block indefinitly the pair.
+        if (
+            pendingDecryption.isPendingDecryption &&
+            block.timestamp < pendingDecryption.decryptionTimestamp + MAX_DECRYPTION_TIME
+        ) {
+            revert("PendingDecryption");
+        }
         _;
     }
     
@@ -62,13 +84,25 @@ contract FHEarnStake is SepoliaConfig {
     function stake(
         externalEuint64 encryptedAmount,
         externalEuint64 encryptedAPY,
+        uint256 deadline,
         bytes calldata inputProof
-    ) external payable decryptionAvailable {
-        require(msg.value > 0, "Must send ETH");
+    ) external payable {
+        emit DebugStep1("Stake function called");
         
-        // For now, use clear values (will be encrypted in real implementation)
+        require(msg.value > 0, "Must send ETH");
+        emit DebugStep2("ETH requirement passed");
+        
+        require(block.timestamp < deadline, "Expired");
+        emit DebugStep3("Deadline requirement passed");
+        
+        // For ETH-based staking, we don't need FHE.fromExternal
+        // Just use the ETH amount directly
         euint64 amount = FHE.asEuint64(uint64(msg.value));
-        euint64 apyRate = FHE.asEuint64(uint64(5)); // Default 5% APY
+        emit DebugStep4("ETH amount encrypted");
+        
+        euint64 apyRate = FHE.asEuint64(uint64(20)); // Fixed APY for now
+        emit DebugStep5("APY rate set");
+        
         euint64 currentTime = FHE.asEuint64(uint64(block.timestamp));
         
         // Store stake information

@@ -1128,7 +1128,7 @@ async function stakeETH() {
     console.log("Amount:", amount, "APY:", apy);
 
     // Get contract instance
-    const contractAddress = "0x82E8A45f148F705FdA986452B034B0Fa8F346124"; // Deployed FHEarnStake
+    const contractAddress = "0x7E26fF8589cd8fAbd2E1Db455b71dc15e91f5647"; // ETH-based contract
 
     // Validate contract address
     if (!ethers.isAddress(contractAddress)) {
@@ -1152,6 +1152,7 @@ async function stakeETH() {
             name: "encryptedAPY",
             type: "bytes32",
           },
+          { internalType: "uint256", name: "deadline", type: "uint256" },
           { internalType: "bytes", name: "inputProof", type: "bytes" },
         ],
         name: "stake",
@@ -1286,11 +1287,20 @@ async function stakeETH() {
 
     console.log("All parameters validated, calling contract...");
 
+    // Calculate deadline (5 minutes from now)
+    const deadline = Math.floor(Date.now() / 1000) + 300; // 5 minutes
+
     // Call the contract with real ETH
-    const tx = await contract.stake(encryptedAmount, encryptedAPY, inputProof, {
-      value: ethers.parseEther(amount.toString()),
-      gasLimit: 1000000,
-    });
+    const tx = await contract.stake(
+      encryptedAmount,
+      encryptedAPY,
+      deadline,
+      inputProof,
+      {
+        value: ethers.parseEther(amount.toString()),
+        gasLimit: 1000000,
+      }
+    );
 
     console.log("Transaction sent:", tx.hash);
 
