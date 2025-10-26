@@ -365,12 +365,19 @@ async function checkStakeStatus(userAddress) {
                     },
                     primaryType: "Reencrypt",
                 });
-                // Decrypt amount
-                const decryptedAmount = await fhevmStatus.value.instance.userDecrypt(encryptedAmount, eip712, signer);
-                // Decrypt timestamp
-                const decryptedTimestamp = await fhevmStatus.value.instance.userDecrypt(encryptedTimestamp, eip712, signer);
-                // Decrypt APY
-                const decryptedAPY = await fhevmStatus.value.instance.userDecrypt(encryptedAPY, eip712, signer);
+                console.log("🔐 Attempting decryption...");
+                console.log("📋 EIP712 data:", eip712);
+                // Use publicDecrypt (no signature required)
+                console.log("🔄 Using publicDecrypt...");
+                // publicDecrypt array bekliyor ve object dönüyor
+                const handles = [encryptedAmount, encryptedTimestamp, encryptedAPY];
+                const values = await fhevmStatus.value.instance.publicDecrypt(handles);
+                console.log("✅ PublicDecrypt successful!");
+                console.log("📊 Decrypted values:", values);
+                // Sonuç bir object: { handle: value }
+                const decryptedAmount = values[handles[0]];
+                const decryptedTimestamp = values[handles[1]];
+                const decryptedAPY = values[handles[2]];
                 // Convert to readable values
                 const stakeAmountETH = (parseFloat(decryptedAmount.toString()) / Math.pow(10, 18)).toFixed(4);
                 const stakeTimestamp = parseInt(decryptedTimestamp.toString()) * 1000;
