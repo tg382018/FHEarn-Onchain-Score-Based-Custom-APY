@@ -1114,32 +1114,32 @@ async function checkStakeStatus(userAddress: string) {
       // Decrypt the encrypted values using FHEVM
       try {
         console.log("📊 Raw onchain data:", onchainStakeInfo);
-        
+
         // Convert Proxy(_Result) objects to proper hex strings using ethers.hexlify
         const encryptedAmountStr = ethers.hexlify(onchainStakeInfo[0]);
         const encryptedTimestampStr = ethers.hexlify(onchainStakeInfo[1]);
         const encryptedAPYStr = ethers.hexlify(onchainStakeInfo[2]);
-        
+
         console.log("🔤 Converted to hex strings:");
         console.log("  💰 Amount string:", encryptedAmountStr);
         console.log("  📅 Timestamp string:", encryptedTimestampStr);
         console.log("  📈 APY string:", encryptedAPYStr);
 
         // Use publicDecrypt (no signature required)
-        console.log("🔄 Using publicDecrypt with string handles...");
-        
+        console.log("🔄 Using publicDecrypt with array of handles...");
+
         const fhe = fhevmStatus.value.instance;
-        
-        // publicDecrypt needs pure hex strings (one at a time)
-        const decryptedAmount = await fhe.publicDecrypt(encryptedAmountStr);
-        const decryptedTimestamp = await fhe.publicDecrypt(encryptedTimestampStr);
-        const decryptedAPY = await fhe.publicDecrypt(encryptedAPYStr);
-        
+
+        // publicDecrypt expects ARRAY of handles (not single string)
+        const decryptedAmount = await fhe.publicDecrypt([encryptedAmountStr]);
+        const decryptedTimestamp = await fhe.publicDecrypt([encryptedTimestampStr]);
+        const decryptedAPY = await fhe.publicDecrypt([encryptedAPYStr]);
+
         console.log("✅ PublicDecrypt successful!");
         console.log("📊 Decrypted values:", {
           amount: decryptedAmount,
           timestamp: decryptedTimestamp,
-          apy: decryptedAPY
+          apy: decryptedAPY,
         });
 
         // Convert to readable values
