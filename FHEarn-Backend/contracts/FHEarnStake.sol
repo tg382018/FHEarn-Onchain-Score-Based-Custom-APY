@@ -95,29 +95,34 @@ contract FHEarnStake is SepoliaConfig {
         require(block.timestamp < deadline, "Expired");
         emit DebugStep3("Deadline requirement passed");
         
-        // For ETH-based staking, we don't need FHE.fromExternal
-        // Just use the ETH amount directly
-        euint64 amount = FHE.asEuint64(uint64(msg.value));
-        emit DebugStep4("ETH amount encrypted");
-        
-        euint64 apyRate = FHE.asEuint64(uint64(20)); // Fixed APY for now
-        emit DebugStep5("APY rate set");
-        
+        // Import encrypted inputs from frontend (createEncryptedInput flow)
+        // https://docs.zama.ai/protocol/relayer-sdk-guides/fhevm-relayer/input
+        euint64 amount = FHE.fromExternal(encryptedAmount, inputProof);
+        euint64 apyRate = FHE.fromExternal(encryptedAPY,   inputProof);
         euint64 currentTime = FHE.asEuint64(uint64(block.timestamp));
         
-        // Store stake information
+        // Make values publicly decryptable at write-time (so frontend can use publicDecrypt)
+        euint64 publicAmount = FHE.makePubliclyDecryptable(amount);
+        euint64 publicTimestamp = FHE.makePubliclyDecryptable(currentTime);
+        euint64 publicApyRate = FHE.makePubliclyDecryptable(apyRate);
+
+        // Store stake information (publicly decryptable fields)
         stakes[msg.sender] = StakeInfo({
-            amount: amount,
-            timestamp: currentTime,
+            amount: publicAmount,
+            timestamp: publicTimestamp,
             lastClaimTime: currentTime,
-            apyRate: apyRate,
+            apyRate: publicApyRate,
             isActive: true
         });
-        
-        // Allow user to decrypt their own stake data
-        FHE.allow(amount, msg.sender);
-        FHE.allow(currentTime, msg.sender);
-        FHE.allow(apyRate, msg.sender);
+
+        // Optionally keep contract/self allowance too (not strictly required for publicDecrypt)
+        FHE.allowThis(publicAmount);
+        FHE.allowThis(publicTimestamp);
+        FHE.allowThis(publicApyRate);
+        // Optionally also allow user-specific decrypt
+        // FHE.allow(amount, msg.sender);
+        // FHE.allow(currentTime, msg.sender);
+        // FHE.allow(apyRate, msg.sender);
         
         emit StakeDeposited(msg.sender, msg.value, block.timestamp);
     }
@@ -274,18 +279,13 @@ contract FHEarnStake is SepoliaConfig {
      * @return Encrypted APY rate
      * @return Is active (clear boolean)
      */
-    function getStakeInfo(address user) 
-        external 
-        view 
-        returns (euint64, euint64, euint64, bool) 
+    function getStakeInfo(address user)
+        external
+        view
+        returns (euint64, euint64, euint64, bool)
     {
-        StakeInfo memory stakeInfo = stakes[user];
-        return (
-            stakeInfo.amount,
-            stakeInfo.timestamp,
-            stakeInfo.apyRate,
-            stakeInfo.isActive
-        );
+        StakeInfo storage stakeInfo = stakes[user];
+        return (stakeInfo.amount, stakeInfo.timestamp, stakeInfo.apyRate, stakeInfo.isActive);
     }
     
     /**

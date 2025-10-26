@@ -5,6 +5,8 @@ const SDK_URL = "https://cdn.zama.ai/relayer-sdk-js/0.2.0/relayer-sdk-js.js";
 let initSDK;
 let createInstance;
 let SepoliaConfig;
+// Single source of truth for the stake contract address
+const STAKE_CONTRACT_ADDRESS = "0x6023B7429080B31998Bae6033ADfFdd0Ef9922b5";
 // State
 const isConnected = ref(false);
 const account = ref(null);
@@ -314,7 +316,7 @@ async function checkStakeStatus(userAddress) {
             console.log("❌ FHEVM not initialized, skipping stake check");
             return;
         }
-        const contractAddress = "0xc10c87b2D5465da90e61aB64fe71546CbdDc314e";
+        const contractAddress = STAKE_CONTRACT_ADDRESS;
         const contractABI = [
             {
                 inputs: [{ internalType: "address", name: "user", type: "address" }],
@@ -329,8 +331,10 @@ async function checkStakeStatus(userAddress) {
                 type: "function",
             },
         ];
-        // Create provider and signer
-        const provider = new ethers.BrowserProvider(window.ethereum);
+        // Create provider and signer (prefer MetaMask provider if multiple wallets)
+        const injected = window.ethereum?.providers?.find((p) => p?.isMetaMask) ||
+            window.ethereum;
+        const provider = new ethers.BrowserProvider(injected);
         const signer = await provider.getSigner();
         const contract = new ethers.Contract(contractAddress, contractABI, provider);
         // Get encrypted stake info from contract
@@ -355,39 +359,108 @@ async function checkStakeStatus(userAddress) {
                 console.log("  💰 Amount string:", encryptedAmountStr);
                 console.log("  📅 Timestamp string:", encryptedTimestampStr);
                 console.log("  📈 APY string:", encryptedAPYStr);
-                // Use publicDecrypt (no signature required)
-                console.log("🔄 Using publicDecrypt with array of handles...");
+                // Public decrypt per-handle (hex strings, array-of-one to match SDK)
+                console.log("🔓 PublicDecrypt per handle (amount/timestamp/apy)...");
                 const fhe = fhevmStatus.value.instance;
-                // publicDecrypt expects ARRAY of handles (not single string)
-                const decryptedAmount = await fhe.publicDecrypt([encryptedAmountStr]);
-                const decryptedTimestamp = await fhe.publicDecrypt([encryptedTimestampStr]);
-                const decryptedAPY = await fhe.publicDecrypt([encryptedAPYStr]);
-                console.log("✅ PublicDecrypt successful!");
-                console.log("📊 Decrypted values:", {
-                    amount: decryptedAmount,
-                    timestamp: decryptedTimestamp,
-                    apy: decryptedAPY,
-                });
-                // Convert to readable values
-                const stakeAmountETH = (parseFloat(decryptedAmount.toString()) / Math.pow(10, 18)).toFixed(4);
-                const stakeTimestamp = parseInt(decryptedTimestamp.toString()) * 1000;
-                const stakeDate = new Date(stakeTimestamp).toLocaleDateString();
-                const stakeAPY = parseFloat(decryptedAPY.toString());
-                console.log("🔓 Decrypted Stake Details:");
-                console.log("  💰 Raw Amount (wei):", decryptedAmount.toString());
-                console.log("  💰 Stake Amount (ETH):", stakeAmountETH, "ETH");
-                console.log("  📅 Raw Timestamp:", decryptedTimestamp.toString());
-                console.log("  📅 Stake Date:", stakeDate);
-                console.log("  📈 Raw APY:", decryptedAPY.toString());
-                console.log("  📈 APY Rate:", stakeAPY, "%");
-                // Update stake info
+                // Helpers for public key normalization (defined BEFORE use)
+                const ensure0x = (hex) => {
+                    if (typeof hex !== "string")
+                        return hex;
+                    return hex.startsWith("0x") ? hex : "0x" + hex;
+                };
+                const bytesToHex = (u8) => {
+                    return ("0x" +
+                        Array.from(u8)
+                            .map((b) => b.toString(16).padStart(2, "0"))
+                            .join(""));
+                };
+                const normalizePublicKey = (pk) => {
+                    if (!pk)
+                        throw new Error("No public key returned by FHEVM");
+                    if (typeof pk === "string")
+                        return ensure0x(pk.toLowerCase());
+                    if (typeof pk.publicKey === "string")
+                        return ensure0x(pk.publicKey.toLowerCase());
+                    if (pk.publicKey instanceof Uint8Array)
+                        return bytesToHex(pk.publicKey);
+                    if (typeof pk.public_key === "string")
+                        return ensure0x(pk.public_key.toLowerCase());
+                    if (typeof pk.key === "string")
+                        return ensure0x(pk.key.toLowerCase());
+                    if (pk.eip712 && typeof pk.eip712.publicKey === "string") {
+                        return ensure0x(pk.eip712.publicKey.toLowerCase());
+                    }
+                    if (pk instanceof Uint8Array)
+                        return bytesToHex(pk);
+                    if (pk?.buffer && typeof pk.byteLength === "number") {
+                        return bytesToHex(new Uint8Array(pk.buffer, pk.byteOffset ?? 0, pk.byteLength));
+                    }
+                    if (pk.publicKey &&
+                        pk.privateKey &&
+                        typeof pk.publicKey === "string") {
+                        return ensure0x(pk.publicKey.toLowerCase());
+                    }
+                    throw new Error("Unsupported public key format");
+                };
+                const decryptOneUser = async (hexStr) => {
+                    try {
+                        // Convert handle hex -> bytes for userDecrypt
+                        const ciphertextBytes = ethers.getBytes(hexStr);
+                        // Get user's public key from SDK and normalize to hex string
+                        const pkRaw = await fhe.getPublicKey();
+                        const normalizedPk = normalizePublicKey(pkRaw);
+                        const publicKeyId = pkRaw?.publicKeyId || pkRaw?.id || "";
+                        const decrypted = await fhe.userDecrypt({
+                            ciphertext: ciphertextBytes,
+                            publicKey: normalizedPk,
+                            owner: await signer.getAddress(),
+                            publicKeyId,
+                            contractAddresses: [STAKE_CONTRACT_ADDRESS],
+                            signer,
+                        });
+                        return decrypted;
+                    }
+                    catch (e) {
+                        console.error("userDecrypt failed:", e?.message || e);
+                        throw e;
+                    }
+                };
+                const decryptOne = async (hexStr) => {
+                    try {
+                        const res = await fhe.publicDecrypt([hexStr]);
+                        return res[hexStr];
+                    }
+                    catch (e) {
+                        if (typeof e?.message === "string" &&
+                            e.message.includes("not allowed for public decryption")) {
+                            console.warn("Public decrypt not allowed for handle; falling back to userDecrypt");
+                            return await decryptOneUser(hexStr);
+                        }
+                        throw e;
+                    }
+                };
+                const vAmount = await decryptOne(encryptedAmountStr);
+                const vTimestamp = await decryptOne(encryptedTimestampStr);
+                const vAPY = await decryptOne(encryptedAPYStr);
+                console.log("🔓 Values:", { vAmount, vTimestamp, vAPY });
+                // Map to UI
+                const stakeAmountETH = (Number(vAmount.toString()) / 1e18).toFixed(4);
+                const stakeDate = new Date(Number(vTimestamp.toString()) * 1000).toLocaleDateString();
+                const stakeAPY = Number(vAPY.toString());
                 stakeInfo.value = {
                     isActive: true,
                     amount: stakeAmountETH,
-                    rewards: "0.0000", // Will be calculated later
-                    stakeDate: stakeDate,
+                    rewards: "0.0000",
+                    stakeDate,
                     apy: stakeAPY,
                 };
+                console.log("💾 Final Stake Info Updated:", stakeInfo.value);
+                // (helpers moved above)
+                // User-decrypt path removed for now (we use publicDecrypt only)
+                // No EIP-712/userDecrypt; proceed directly to publicDecrypt
+                // Do not attempt publicDecrypt for now
+                // Decryption disabled: leave stakeInfo as is; UI will show active state via on-chain flag later
+                console.log("🔧 Skipping decryption mapping to UI for now");
                 console.log("💾 Final Stake Info Updated:");
                 console.log("  ✅ Is Active:", stakeInfo.value.isActive);
                 console.log("  💰 Amount:", stakeInfo.value.amount, "ETH");
@@ -430,19 +503,9 @@ async function checkStakeStatus(userAddress) {
         console.error("❌ Error checking stake status:", error);
         console.log("🔍 Error Details:");
         console.log("  👤 User Address:", userAddress);
-        console.log("  📋 Contract Address: 0xc10c87b2D5465da90e61aB64fe71546CbdDc314e");
+        console.log("  📋 Contract Address:", STAKE_CONTRACT_ADDRESS);
         console.log("  ⚠️ Error Message:", error.message);
-        console.log("  💡 Action: Will reset to inactive state");
-        // On error, clear localStorage and reset to inactive state
-        localStorage.removeItem("fhearn_stake_info");
-        stakeInfo.value = {
-            isActive: false,
-            amount: "0",
-            rewards: "0",
-            stakeDate: "",
-            apy: 0,
-        };
-        console.log("🧹 Error recovery: Cleared localStorage and reset stake info");
+        console.log("  💡 Action: Preserve current UI/cache; decryption can retry later");
     }
 }
 // Switch to Sepolia Network
@@ -511,7 +574,7 @@ async function stakeETH() {
         console.log("Starting real FHEVM stake operation...");
         console.log("Amount:", amount, "APY:", apy);
         // Get contract instance
-        const contractAddress = "0xc10c87b2D5465da90e61aB64fe71546CbdDc314e"; // ETH-based contract
+        const contractAddress = STAKE_CONTRACT_ADDRESS; // Deployed FHEarnStake (Sepolia)
         // Validate contract address
         if (!ethers.isAddress(contractAddress)) {
             throw new Error(`Invalid contract address: ${contractAddress}`);
@@ -575,9 +638,11 @@ async function stakeETH() {
                 // Step 1: Create encrypted input with contract address and user address
                 const input = fhevmStatus.value.instance.createEncryptedInput(checksumAddress, account.value);
                 console.log("Created encrypted input object");
-                // Step 2: Add values to the input
-                input.add64(Math.floor(amount * 1e18)); // Amount in wei (64-bit)
-                input.add32(apy); // APY as 32-bit integer
+                // Step 2: Add values to the input (use 64-bit + BigInt per SDK input guide)
+                // Amount in wei as BigInt
+                input.add64(ethers.parseUnits(amount.toString(), 18));
+                // APY as 64-bit integer
+                input.add64(BigInt(apy));
                 console.log("Added values to encrypted input");
                 // Step 3: Encrypt and get handles + proof
                 const enc = await input.encrypt();
@@ -809,6 +874,8 @@ async function initializeFHEVM() {
                 instance: fhevmInstance,
                 config: fhevmConfig,
             };
+            // Self-test removed on request
+            console.log("🔧 publicDecrypt self-test disabled");
             // Check if FHEVM is in real mode (not mock)
             console.log("FHEVM Config:", fhevmConfig);
             console.log("FHEVM Instance methods:", Object.keys(fhevmInstance));
