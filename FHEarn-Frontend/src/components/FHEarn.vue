@@ -1113,67 +1113,34 @@ async function checkStakeStatus(userAddress: string) {
 
       // Decrypt the encrypted values using FHEVM
       try {
-        const encryptedAmount = onchainStakeInfo[0];
-        const encryptedTimestamp = onchainStakeInfo[1];
-        const encryptedAPY = onchainStakeInfo[2];
-
-        // Create EIP712 for decryption
-        const eip712 = fhevmStatus.value.instance.createEIP712({
-          domain: {
-            name: "FHEVM",
-            version: "1",
-            chainId: 11155111, // Sepolia
-            verifyingContract: contractAddress,
-          },
-          types: {
-            Reencrypt: [
-              { name: "publicKey", type: "bytes" },
-              { name: "ciphertext", type: "bytes" },
-            ],
-          },
-          primaryType: "Reencrypt",
-        });
-
-        console.log("🔐 Attempting decryption...");
-        console.log("📋 EIP712 data:", eip712);
+        console.log("📊 Raw onchain data:", onchainStakeInfo);
+        
+        // Convert Proxy(_Result) objects to proper hex strings using ethers.hexlify
+        const encryptedAmountStr = ethers.hexlify(onchainStakeInfo[0]);
+        const encryptedTimestampStr = ethers.hexlify(onchainStakeInfo[1]);
+        const encryptedAPYStr = ethers.hexlify(onchainStakeInfo[2]);
+        
+        console.log("🔤 Converted to hex strings:");
+        console.log("  💰 Amount string:", encryptedAmountStr);
+        console.log("  📅 Timestamp string:", encryptedTimestampStr);
+        console.log("  📈 APY string:", encryptedAPYStr);
 
         // Use publicDecrypt (no signature required)
-        console.log("🔄 Using publicDecrypt...");
+        console.log("🔄 Using publicDecrypt with string handles...");
         
-        // Declare variables
-        let decryptedAmount, decryptedTimestamp, decryptedAPY;
+        const fhe = fhevmStatus.value.instance;
         
-        try {
-          // Try SDK 0.2.0 object format
-          console.log("📋 Trying SDK 0.2.0 format with object parameter...");
-          const result = await fhevmStatus.value.instance.publicDecrypt({
-            ciphertexts: [encryptedAmount, encryptedTimestamp, encryptedAPY],
-          });
-          
-          console.log("✅ PublicDecrypt successful with object format!");
-          console.log("📊 Decrypted values:", result);
-          
-          decryptedAmount = result[encryptedAmount] || result.ciphertexts?.[0];
-          decryptedTimestamp = result[encryptedTimestamp] || result.ciphertexts?.[1];
-          decryptedAPY = result[encryptedAPY] || result.ciphertexts?.[2];
-        } catch (objError: any) {
-          console.log("❌ Object format failed, trying array format...");
-          console.log("Error:", objError);
-          
-          // Fallback to array format
-          const values = await fhevmStatus.value.instance.publicDecrypt([
-            encryptedAmount,
-            encryptedTimestamp,
-            encryptedAPY,
-          ]);
-          
-          console.log("✅ PublicDecrypt successful with array format!");
-          console.log("📊 Decrypted values:", values);
-          
-          decryptedAmount = values[encryptedAmount];
-          decryptedTimestamp = values[encryptedTimestamp];
-          decryptedAPY = values[encryptedAPY];
-        }
+        // publicDecrypt needs pure hex strings (one at a time)
+        const decryptedAmount = await fhe.publicDecrypt(encryptedAmountStr);
+        const decryptedTimestamp = await fhe.publicDecrypt(encryptedTimestampStr);
+        const decryptedAPY = await fhe.publicDecrypt(encryptedAPYStr);
+        
+        console.log("✅ PublicDecrypt successful!");
+        console.log("📊 Decrypted values:", {
+          amount: decryptedAmount,
+          timestamp: decryptedTimestamp,
+          apy: decryptedAPY
+        });
 
         // Convert to readable values
         const stakeAmountETH = (
@@ -1211,8 +1178,12 @@ async function checkStakeStatus(userAddress: string) {
         startRewardUpdates();
       } catch (decryptError: any) {
         console.error("❌ Failed to decrypt FHEVM values:", decryptError);
-        console.warn("⚠️ Keeping cached stake info since decrypt failed temporarily");
-        console.warn("💡 This is a temporary issue. Stake data is still on-chain.");
+        console.warn(
+          "⚠️ Keeping cached stake info since decrypt failed temporarily"
+        );
+        console.warn(
+          "💡 This is a temporary issue. Stake data is still on-chain."
+        );
 
         // DO NOT clear localStorage - keep cached data
         // localStorage.removeItem("fhearn_stake_info");
