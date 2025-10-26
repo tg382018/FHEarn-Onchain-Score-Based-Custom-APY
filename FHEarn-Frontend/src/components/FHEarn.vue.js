@@ -369,15 +369,35 @@ async function checkStakeStatus(userAddress) {
                 console.log("📋 EIP712 data:", eip712);
                 // Use publicDecrypt (no signature required)
                 console.log("🔄 Using publicDecrypt...");
-                // publicDecrypt array bekliyor ve object dönüyor
-                const handles = [encryptedAmount, encryptedTimestamp, encryptedAPY];
-                const values = await fhevmStatus.value.instance.publicDecrypt(handles);
-                console.log("✅ PublicDecrypt successful!");
-                console.log("📊 Decrypted values:", values);
-                // Sonuç bir object: { handle: value }
-                const decryptedAmount = values[handles[0]];
-                const decryptedTimestamp = values[handles[1]];
-                const decryptedAPY = values[handles[2]];
+                // Declare variables
+                let decryptedAmount, decryptedTimestamp, decryptedAPY;
+                try {
+                    // Try SDK 0.2.0 object format
+                    console.log("📋 Trying SDK 0.2.0 format with object parameter...");
+                    const result = await fhevmStatus.value.instance.publicDecrypt({
+                        ciphertexts: [encryptedAmount, encryptedTimestamp, encryptedAPY],
+                    });
+                    console.log("✅ PublicDecrypt successful with object format!");
+                    console.log("📊 Decrypted values:", result);
+                    decryptedAmount = result[encryptedAmount] || result.ciphertexts?.[0];
+                    decryptedTimestamp = result[encryptedTimestamp] || result.ciphertexts?.[1];
+                    decryptedAPY = result[encryptedAPY] || result.ciphertexts?.[2];
+                }
+                catch (objError) {
+                    console.log("❌ Object format failed, trying array format...");
+                    console.log("Error:", objError);
+                    // Fallback to array format
+                    const values = await fhevmStatus.value.instance.publicDecrypt([
+                        encryptedAmount,
+                        encryptedTimestamp,
+                        encryptedAPY,
+                    ]);
+                    console.log("✅ PublicDecrypt successful with array format!");
+                    console.log("📊 Decrypted values:", values);
+                    decryptedAmount = values[encryptedAmount];
+                    decryptedTimestamp = values[encryptedTimestamp];
+                    decryptedAPY = values[encryptedAPY];
+                }
                 // Convert to readable values
                 const stakeAmountETH = (parseFloat(decryptedAmount.toString()) / Math.pow(10, 18)).toFixed(4);
                 const stakeTimestamp = parseInt(decryptedTimestamp.toString()) * 1000;
@@ -409,16 +429,12 @@ async function checkStakeStatus(userAddress) {
             }
             catch (decryptError) {
                 console.error("❌ Failed to decrypt FHEVM values:", decryptError);
-                // Clear corrupted localStorage data
-                localStorage.removeItem("fhearn_stake_info");
-                // Reset stake info to inactive state
-                stakeInfo.value = {
-                    isActive: false,
-                    amount: "0",
-                    rewards: "0",
-                    stakeDate: "",
-                    apy: 0,
-                };
+                console.warn("⚠️ Keeping cached stake info since decrypt failed temporarily");
+                console.warn("💡 This is a temporary issue. Stake data is still on-chain.");
+                // DO NOT clear localStorage - keep cached data
+                // localStorage.removeItem("fhearn_stake_info");
+                // Keep existing stake info instead of resetting
+                // Stake info is still valid on-chain, just decrypt failed
             }
         }
         else {
@@ -762,6 +778,14 @@ function startRewardUpdates() {
     }
 }
 onMounted(async () => {
+    // Fix MetaMask provider conflict (if multiple wallets exist)
+    if (window.ethereum?.providers) {
+        const metamaskProvider = window.ethereum.providers.find((p) => p.isMetaMask);
+        if (metamaskProvider) {
+            window.ethereum = metamaskProvider;
+            console.log("✅ Using MetaMask provider");
+        }
+    }
     isMetaMaskInstalled.value = typeof window.ethereum !== "undefined";
     if (isMetaMaskInstalled.value) {
         await initializeFHEVM();
