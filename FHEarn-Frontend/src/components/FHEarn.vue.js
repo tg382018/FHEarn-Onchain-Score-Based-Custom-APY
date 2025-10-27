@@ -6,7 +6,7 @@ let initSDK;
 let createInstance;
 let SepoliaConfig;
 // Single source of truth for the stake contract address
-const STAKE_CONTRACT_ADDRESS = "0x6023B7429080B31998Bae6033ADfFdd0Ef9922b5";
+const STAKE_CONTRACT_ADDRESS = "0xb14cedE0497De8040f58e0acd3bBD1410fBECe55";
 // State
 const isConnected = ref(false);
 const account = ref(null);
@@ -525,7 +525,11 @@ async function checkStakeStatus(userAddress) {
                 console.log("💾 Final Stake Info Updated:", stakeInfo.value);
                 // Start BigInt-based reward updates from baseline = max(timestamp, lastClaim)
                 const baselineStart = Math.max(tsSec, lastSec);
-                startRewardUpdatesBaseline({ amountWei, apy: stakeAPY, startSec: baselineStart });
+                startRewardUpdatesBaseline({
+                    amountWei,
+                    apy: stakeAPY,
+                    startSec: baselineStart,
+                });
                 console.log("  ✅ Is Active:", stakeInfo.value.isActive);
                 console.log("  💰 Amount:", stakeInfo.value.amount, "ETH");
                 console.log("  🎁 Rewards:", stakeInfo.value.rewards, "ETH");

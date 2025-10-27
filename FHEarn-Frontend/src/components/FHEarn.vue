@@ -685,7 +685,7 @@ let createInstance: any;
 let SepoliaConfig: any;
 
 // Single source of truth for the stake contract address
-const STAKE_CONTRACT_ADDRESS = "0x6023B7429080B31998Bae6033ADfFdd0Ef9922b5";
+const STAKE_CONTRACT_ADDRESS = "0xb14cedE0497De8040f58e0acd3bBD1410fBECe55";
 
 // State
 const isConnected = ref(false);
@@ -712,7 +712,12 @@ const stakeInfo = ref({
 const SECONDS_PER_YEAR = 31536000n;
 let rewardTimer: any = null;
 
-function computeRewardWei(amountWei: bigint, apyPct: number, startSec: number, nowSec: number): bigint {
+function computeRewardWei(
+  amountWei: bigint,
+  apyPct: number,
+  startSec: number,
+  nowSec: number
+): bigint {
   const elapsed = BigInt(Math.max(0, nowSec - startSec));
   return (amountWei * BigInt(apyPct) * elapsed) / (SECONDS_PER_YEAR * 100n);
 }
@@ -721,10 +726,19 @@ function formatEthFromWeiBigInt(wei: bigint, decimals = 4): string {
   return (Number(wei) / 1e18).toFixed(decimals);
 }
 
-function startRewardUpdatesBaseline(baseline: { amountWei: bigint; apy: number; startSec: number }) {
+function startRewardUpdatesBaseline(baseline: {
+  amountWei: bigint;
+  apy: number;
+  startSec: number;
+}) {
   const tick = () => {
     const t = Math.floor(Date.now() / 1000);
-    const rw = computeRewardWei(baseline.amountWei, baseline.apy, baseline.startSec, t);
+    const rw = computeRewardWei(
+      baseline.amountWei,
+      baseline.apy,
+      baseline.startSec,
+      t
+    );
     stakeInfo.value.rewards = formatEthFromWeiBigInt(rw, 4);
     localStorage.setItem("fhearn_stake_info", JSON.stringify(stakeInfo.value));
   };
@@ -1317,7 +1331,11 @@ async function checkStakeStatus(userAddress: string) {
 
         // Start BigInt-based reward updates from baseline = max(timestamp, lastClaim)
         const baselineStart = Math.max(tsSec, lastSec);
-        startRewardUpdatesBaseline({ amountWei, apy: stakeAPY, startSec: baselineStart });
+        startRewardUpdatesBaseline({
+          amountWei,
+          apy: stakeAPY,
+          startSec: baselineStart,
+        });
 
         console.log("  ✅ Is Active:", stakeInfo.value.isActive);
         console.log("  💰 Amount:", stakeInfo.value.amount, "ETH");
