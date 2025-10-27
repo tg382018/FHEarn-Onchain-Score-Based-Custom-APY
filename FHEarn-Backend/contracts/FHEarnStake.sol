@@ -107,10 +107,12 @@ contract FHEarnStake is SepoliaConfig {
         euint64 publicApyRate = FHE.makePubliclyDecryptable(apyRate);
 
         // Store stake information (publicly decryptable fields)
+        // lastClaimTime should start equal to timestamp and be publicly decryptable
+        euint64 publicLastClaim = publicTimestamp;
         stakes[msg.sender] = StakeInfo({
             amount: publicAmount,
             timestamp: publicTimestamp,
-            lastClaimTime: currentTime,
+            lastClaimTime: publicLastClaim,
             apyRate: publicApyRate,
             isActive: true
         });
@@ -222,6 +224,9 @@ contract FHEarnStake is SepoliaConfig {
         
         if (keccak256(bytes(operation)) == keccak256(bytes("claim"))) {
             _processClaim(user, decryptedAmount);
+            // Update lastClaimTime publicly to reset UI baseline
+            euint64 newTime = FHE.asEuint64(uint64(block.timestamp));
+            stakes[user].lastClaimTime = FHE.makePubliclyDecryptable(newTime);
         } else if (keccak256(bytes(operation)) == keccak256(bytes("withdraw"))) {
             _processWithdrawal(user, decryptedAmount);
         }
@@ -286,6 +291,18 @@ contract FHEarnStake is SepoliaConfig {
     {
         StakeInfo storage stakeInfo = stakes[user];
         return (stakeInfo.amount, stakeInfo.timestamp, stakeInfo.apyRate, stakeInfo.isActive);
+    }
+
+    /**
+     * @dev Full stake info including lastClaimTime for UI baseline
+     */
+    function getStakeInfoFull(address user)
+        external
+        view
+        returns (euint64, euint64, euint64, euint64, bool)
+    {
+        StakeInfo storage s = stakes[user];
+        return (s.amount, s.timestamp, s.lastClaimTime, s.apyRate, s.isActive);
     }
     
     /**

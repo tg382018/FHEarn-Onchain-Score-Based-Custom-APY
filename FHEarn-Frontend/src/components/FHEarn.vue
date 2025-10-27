@@ -708,6 +708,38 @@ const stakeInfo = ref({
   apy: 0,
 });
 
+// Rewards computation helpers
+const SECONDS_PER_YEAR = 31536000n;
+let rewardTimer: any = null;
+
+function computeRewardWei(amountWei: bigint, apyPct: number, startSec: number, nowSec: number): bigint {
+  const elapsed = BigInt(Math.max(0, nowSec - startSec));
+  return (amountWei * BigInt(apyPct) * elapsed) / (SECONDS_PER_YEAR * 100n);
+}
+
+function formatEthFromWeiBigInt(wei: bigint, decimals = 4): string {
+  return (Number(wei) / 1e18).toFixed(decimals);
+}
+
+function startRewardUpdatesBaseline(baseline: { amountWei: bigint; apy: number; startSec: number }) {
+  const tick = () => {
+    const t = Math.floor(Date.now() / 1000);
+    const rw = computeRewardWei(baseline.amountWei, baseline.apy, baseline.startSec, t);
+    stakeInfo.value.rewards = formatEthFromWeiBigInt(rw, 4);
+    localStorage.setItem("fhearn_stake_info", JSON.stringify(stakeInfo.value));
+  };
+  tick();
+  if (rewardTimer) clearInterval(rewardTimer);
+  rewardTimer = setInterval(tick, 120000);
+}
+
+function stopRewardUpdates() {
+  if (rewardTimer) {
+    clearInterval(rewardTimer);
+    rewardTimer = null;
+  }
+}
+
 // Covalent API Configuration
 const COVALENT_API_KEY = "cqt_rQyRVjPctqcPT9qJKJvWdWtX8v69";
 const COVALENT_BASE_URL = "https://api.covalenthq.com/v1";
@@ -1074,7 +1106,21 @@ async function checkStakeStatus(userAddress: string) {
     }
 
     const contractAddress = STAKE_CONTRACT_ADDRESS;
+    // Prefer full info if available (amount, timestamp, lastClaimTime, apyRate, isActive)
     const contractABI = [
+      {
+        inputs: [{ internalType: "address", name: "user", type: "address" }],
+        name: "getStakeInfoFull",
+        outputs: [
+          { internalType: "euint64", name: "", type: "bytes32" },
+          { internalType: "euint64", name: "", type: "bytes32" },
+          { internalType: "euint64", name: "", type: "bytes32" },
+          { internalType: "euint64", name: "", type: "bytes32" },
+          { internalType: "bool", name: "", type: "bool" },
+        ],
+        stateMutability: "view",
+        type: "function",
+      },
       {
         inputs: [{ internalType: "address", name: "user", type: "address" }],
         name: "getStakeInfo",
@@ -1102,12 +1148,18 @@ async function checkStakeStatus(userAddress: string) {
       provider
     );
 
-    // Get encrypted stake info from contract
-    const onchainStakeInfo = await contract.getStakeInfo(userAddress);
-    console.log("📊 Onchain stake info:", onchainStakeInfo);
-
-    // Check if user has active stake (isActive is the 4th element, index 3)
-    const isActive = onchainStakeInfo[3];
+    // Try getStakeInfoFull first, fallback to getStakeInfo
+    let onchainStakeInfo: any;
+    let isActive: boolean;
+    try {
+      onchainStakeInfo = await contract.getStakeInfoFull(userAddress);
+      console.log("📊 Onchain stake info (full):", onchainStakeInfo);
+      isActive = Boolean(onchainStakeInfo[4]);
+    } catch (e) {
+      onchainStakeInfo = await contract.getStakeInfo(userAddress);
+      console.log("📊 Onchain stake info (basic):", onchainStakeInfo);
+      isActive = Boolean(onchainStakeInfo[3]);
+    }
 
     console.log("🔍 Stake Status Check:");
     console.log("  👤 User Address:", userAddress);
@@ -1124,7 +1176,14 @@ async function checkStakeStatus(userAddress: string) {
         // Convert Proxy(_Result) objects to proper hex strings using ethers.hexlify
         const encryptedAmountStr = ethers.hexlify(onchainStakeInfo[0]);
         const encryptedTimestampStr = ethers.hexlify(onchainStakeInfo[1]);
-        const encryptedAPYStr = ethers.hexlify(onchainStakeInfo[2]);
+        // When full info exists, index 2 is lastClaimTime; otherwise we set it equal to timestamp
+        const hasFull = onchainStakeInfo.length >= 5;
+        const encryptedLastClaimStr = hasFull
+          ? ethers.hexlify(onchainStakeInfo[2])
+          : encryptedTimestampStr;
+        const encryptedAPYStr = hasFull
+          ? ethers.hexlify(onchainStakeInfo[3])
+          : ethers.hexlify(onchainStakeInfo[2]);
 
         console.log("🔤 Converted to hex strings:");
         console.log("  💰 Amount string:", encryptedAmountStr);
@@ -1226,16 +1285,26 @@ async function checkStakeStatus(userAddress: string) {
 
         const vAmount = await decryptOne(encryptedAmountStr);
         const vTimestamp = await decryptOne(encryptedTimestampStr);
+        const vLastClaim = await decryptOne(encryptedLastClaimStr);
         const vAPY = await decryptOne(encryptedAPYStr);
 
         console.log("🔓 Values:", { vAmount, vTimestamp, vAPY });
 
         // Map to UI
-        const stakeAmountETH = (Number(vAmount.toString()) / 1e18).toFixed(4);
-        const stakeDate = new Date(
-          Number(vTimestamp.toString()) * 1000
-        ).toLocaleDateString();
+        const amountWei = BigInt(vAmount.toString());
+        const tsSec = Number(vTimestamp.toString());
+        const lastSec = Number(vLastClaim.toString());
         const stakeAPY = Number(vAPY.toString());
+
+        const stakeAmountETH = (Number(amountWei) / 1e18).toFixed(4);
+        const stakeDate = new Date(tsSec * 1000).toLocaleString(undefined, {
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+        });
 
         stakeInfo.value = {
           isActive: true,
@@ -1246,26 +1315,15 @@ async function checkStakeStatus(userAddress: string) {
         };
         console.log("💾 Final Stake Info Updated:", stakeInfo.value);
 
-        // (helpers moved above)
+        // Start BigInt-based reward updates from baseline = max(timestamp, lastClaim)
+        const baselineStart = Math.max(tsSec, lastSec);
+        startRewardUpdatesBaseline({ amountWei, apy: stakeAPY, startSec: baselineStart });
 
-        // User-decrypt path removed for now (we use publicDecrypt only)
-
-        // No EIP-712/userDecrypt; proceed directly to publicDecrypt
-
-        // Do not attempt publicDecrypt for now
-
-        // Decryption disabled: leave stakeInfo as is; UI will show active state via on-chain flag later
-        console.log("🔧 Skipping decryption mapping to UI for now");
-
-        console.log("💾 Final Stake Info Updated:");
         console.log("  ✅ Is Active:", stakeInfo.value.isActive);
         console.log("  💰 Amount:", stakeInfo.value.amount, "ETH");
         console.log("  🎁 Rewards:", stakeInfo.value.rewards, "ETH");
         console.log("  📅 Date:", stakeInfo.value.stakeDate);
         console.log("  📈 APY:", stakeInfo.value.apy, "%");
-
-        // Start reward updates
-        startRewardUpdates();
       } catch (decryptError: any) {
         console.error("❌ Failed to decrypt FHEVM values:", decryptError);
         console.warn(
