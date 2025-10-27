@@ -22,7 +22,7 @@ const isWithdrawing = ref(false);
 const stakeInfo = ref({
     isActive: false,
     amount: "0",
-    rewards: "0",
+    rewards: "0.00000000",
     stakeDate: "",
     apy: 0,
 });
@@ -33,7 +33,7 @@ function computeRewardWei(amountWei, apyPct, startSec, nowSec) {
     const elapsed = BigInt(Math.max(0, nowSec - startSec));
     return (amountWei * BigInt(apyPct) * elapsed) / (SECONDS_PER_YEAR * 100n);
 }
-function formatEthFromWeiBigInt(wei, decimals = 4) {
+function formatEthFromWeiBigInt(wei, decimals = 8) {
     return (Number(wei) / 1e18).toFixed(decimals);
 }
 function startRewardUpdatesBaseline(baseline) {
