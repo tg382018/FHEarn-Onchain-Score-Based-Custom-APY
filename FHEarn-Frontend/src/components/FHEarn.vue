@@ -325,9 +325,10 @@
               <!-- Action Buttons -->
               <div class="flex space-x-3">
                 <button
-                  @click="claimRewards"
-                  :disabled="isClaiming || parseFloat(stakeInfo.rewards) <= 0"
-                  class="flex-1 bg-gradient-to-r from-yellow-500 to-yellow-400 text-white px-4 py-2 rounded-lg hover:from-yellow-600 hover:to-yellow-500 transition-all duration-200 font-medium flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  @click.prevent
+                  :disabled="true"
+                  title="Coming soon"
+                  class="flex-1 bg-gradient-to-r from-slate-600 to-slate-500 text-white px-4 py-2 rounded-lg cursor-not-allowed opacity-60 font-medium flex items-center justify-center space-x-2"
                 >
                   <svg
                     v-if="isClaiming"
@@ -361,9 +362,7 @@
                       clip-rule="evenodd"
                     />
                   </svg>
-                  <span>{{
-                    isClaiming ? "Claiming..." : "Claim Rewards"
-                  }}</span>
+                  <span>Claim ONLY Rewards (Coming soon)</span>
                 </button>
 
                 <button
@@ -685,7 +684,7 @@ let createInstance: any;
 let SepoliaConfig: any;
 
 // Single source of truth for the stake contract address
-const STAKE_CONTRACT_ADDRESS = "0xb14cedE0497De8040f58e0acd3bBD1410fBECe55";
+const STAKE_CONTRACT_ADDRESS = "0x73Cd102fA66551c82Eb97C50634Cbd19f2091f98";
 
 // State
 const isConnected = ref(false);
@@ -739,12 +738,15 @@ function startRewardUpdatesBaseline(baseline: {
       baseline.startSec,
       t
     );
-    stakeInfo.value.rewards = formatEthFromWeiBigInt(rw, 4);
+    const formatted = formatEthFromWeiBigInt(rw, 8);
+    stakeInfo.value.rewards = formatted;
+    console.log("reward(tick):", formatted, "ETH");
     localStorage.setItem("fhearn_stake_info", JSON.stringify(stakeInfo.value));
   };
+  // immediate compute and log
   tick();
   if (rewardTimer) clearInterval(rewardTimer);
-  rewardTimer = setInterval(tick, 120000);
+  rewardTimer = setInterval(tick, 30000);
 }
 
 function stopRewardUpdates() {
@@ -1323,7 +1325,7 @@ async function checkStakeStatus(userAddress: string) {
         stakeInfo.value = {
           isActive: true,
           amount: stakeAmountETH,
-          rewards: "0.0000",
+          rewards: "0.00000000",
           stakeDate,
           apy: stakeAPY,
         };
@@ -1486,6 +1488,7 @@ async function stakeETH() {
           },
           { internalType: "uint256", name: "deadline", type: "uint256" },
           { internalType: "bytes", name: "inputProof", type: "bytes" },
+          { internalType: "uint64", name: "apyClear", type: "uint64" },
         ],
         name: "stake",
         outputs: [],
@@ -1630,6 +1633,7 @@ async function stakeETH() {
       encryptedAPY,
       deadline,
       inputProof,
+      BigInt(apy),
       {
         value: ethers.parseEther(amount.toString()),
         gasLimit: 1000000,
@@ -1669,27 +1673,36 @@ async function claimRewards() {
   isClaiming.value = true;
 
   try {
-    // Calculate rewards (simplified calculation)
-    const stakeTime =
-      new Date().getTime() - new Date(stakeInfo.value.stakeDate).getTime();
-    const daysStaked = stakeTime / (1000 * 60 * 60 * 24);
-    const annualReward =
-      parseFloat(stakeInfo.value.amount) * (stakeInfo.value.apy / 100);
-    const currentReward = (annualReward * daysStaked) / 365;
+    // Real contract call
+    const injected =
+      (window as any).ethereum?.providers?.find((p: any) => p?.isMetaMask) ||
+      (window as any).ethereum;
+    const provider = new ethers.BrowserProvider(injected);
+    const signer = await provider.getSigner();
 
-    console.log("Claiming rewards:", currentReward);
+    const contractABI = [
+      {
+        name: "claimReward",
+        type: "function",
+        stateMutability: "nonpayable",
+        inputs: [],
+        outputs: [],
+      },
+    ];
+    const contract = new ethers.Contract(
+      STAKE_CONTRACT_ADDRESS,
+      contractABI,
+      signer
+    );
 
-    // Simulate contract call
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+    console.log("Sending claimReward tx...");
+    const tx = await contract.claimReward({ gasLimit: 500000 });
+    console.log("Claim tx sent:", tx.hash);
+    await tx.wait();
+    console.log("Claim tx confirmed");
 
-    // Reset rewards to 0
-    stakeInfo.value.rewards = "0";
-    stakeInfo.value.stakeDate = new Date().toLocaleDateString(); // Reset stake date
-
-    // Save to localStorage
-    localStorage.setItem("fhearn_stake_info", JSON.stringify(stakeInfo.value));
-
-    console.log("Rewards claimed successfully!");
+    // Refresh on-chain state and rewards baseline
+    await checkStakeStatus(await signer.getAddress());
   } catch (error: any) {
     console.error("Claim error:", error);
     alert("Claim failed: " + error.message);
@@ -1704,24 +1717,50 @@ async function withdrawAll() {
   isWithdrawing.value = true;
 
   try {
-    console.log("Withdrawing all:", stakeInfo.value.amount);
+    const injected =
+      (window as any).ethereum?.providers?.find((p: any) => p?.isMetaMask) ||
+      (window as any).ethereum;
+    const provider = new ethers.BrowserProvider(injected);
+    const signer = await provider.getSigner();
 
-    // Simulate contract call
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    const contractABI = [
+      {
+        name: "withdrawAll",
+        type: "function",
+        stateMutability: "nonpayable",
+        inputs: [],
+        outputs: [],
+      },
+      {
+        name: "withdrawAllClear",
+        type: "function",
+        stateMutability: "nonpayable",
+        inputs: [],
+        outputs: [],
+      },
+    ];
+    const contract = new ethers.Contract(
+      STAKE_CONTRACT_ADDRESS,
+      contractABI,
+      signer
+    );
 
-    // Reset stake info
-    stakeInfo.value = {
-      isActive: false,
-      amount: "0",
-      rewards: "0",
-      stakeDate: "",
-      apy: 0,
-    };
+    console.log("Sending withdrawAll tx...");
+    // Prefer clear-path when available
+    let tx;
+    if (contract.withdrawAllClear) {
+      console.log("Sending withdrawAllClear tx...");
+      tx = await contract.withdrawAllClear({ gasLimit: 600000 });
+    } else {
+      console.log("Sending withdrawAll tx...");
+      tx = await contract.withdrawAll({ gasLimit: 600000 });
+    }
+    console.log("Withdraw tx sent:", tx.hash);
+    await tx.wait();
+    console.log("Withdraw tx confirmed");
 
-    // Remove from localStorage
-    localStorage.removeItem("fhearn_stake_info");
-
-    console.log("Withdrawal successful!");
+    // Refresh on-chain state (should become inactive)
+    await checkStakeStatus(await signer.getAddress());
   } catch (error: any) {
     console.error("Withdrawal error:", error);
     alert("Withdrawal failed: " + error.message);
@@ -1734,7 +1773,10 @@ async function withdrawAll() {
 function loadStakeInfo() {
   const savedStakeInfo = localStorage.getItem("fhearn_stake_info");
   if (savedStakeInfo) {
-    stakeInfo.value = JSON.parse(savedStakeInfo);
+    // Only hydrate if we don't already have an active on-chain state
+    if (!stakeInfo.value.isActive) {
+      stakeInfo.value = JSON.parse(savedStakeInfo);
+    }
   }
 }
 
@@ -1783,7 +1825,6 @@ onMounted(async () => {
 
   // Load stake info and start reward updates
   loadStakeInfo();
-  startRewardUpdates();
 });
 
 // Initialize FHEVM

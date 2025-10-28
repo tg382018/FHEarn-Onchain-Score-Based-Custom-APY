@@ -31,6 +31,12 @@ contract FHEarnStake is SepoliaConfig {
         euint64 lastClaimTime;    // Encrypted last claim timestamp
         euint64 apyRate;          // Encrypted APY rate (based on score)
         bool isActive;            // Clear boolean for active status
+
+        // Clear mirrors for immediate operations without relayer
+        uint64 amountWeiClear;            // principal in wei
+        uint64 stakeTimestampClear;       // stake time (sec)
+        uint64 lastClaimTimestampClear;   // last claim time (sec)
+        uint64 apyRateClear;              // APY percent, e.g., 8 for 8%
     }
     
     struct PendingOperation {
@@ -85,7 +91,8 @@ contract FHEarnStake is SepoliaConfig {
         externalEuint64 encryptedAmount,
         externalEuint64 encryptedAPY,
         uint256 deadline,
-        bytes calldata inputProof
+        bytes calldata inputProof,
+        uint64 apyClear
     ) external payable {
         emit DebugStep1("Stake function called");
         
@@ -114,7 +121,11 @@ contract FHEarnStake is SepoliaConfig {
             timestamp: publicTimestamp,
             lastClaimTime: publicLastClaim,
             apyRate: publicApyRate,
-            isActive: true
+            isActive: true,
+            amountWeiClear: uint64(msg.value),
+            stakeTimestampClear: uint64(block.timestamp),
+            lastClaimTimestampClear: uint64(block.timestamp),
+            apyRateClear: apyClear
         });
 
         // Optionally keep contract/self allowance too (not strictly required for publicDecrypt)
@@ -239,12 +250,14 @@ contract FHEarnStake is SepoliaConfig {
      * @dev Process reward claim
      */
     function _processClaim(address user, uint64 rewardAmount) internal {
-        // Update last claim time
-        stakes[user].lastClaimTime = FHE.asEuint64(uint64(block.timestamp));
-        
-        // Transfer reward
+        // Update last claim time (encrypted + clear mirrors)
+        uint64 nowSec = uint64(block.timestamp);
+        stakes[user].lastClaimTime = FHE.asEuint64(nowSec);
+        stakes[user].lastClaimTimestampClear = nowSec;
+
+        // Transfer reward (internal transfer from contract balance)
         payable(user).transfer(rewardAmount);
-        
+
         emit RewardClaimed(user, rewardAmount);
     }
     
@@ -252,13 +265,54 @@ contract FHEarnStake is SepoliaConfig {
      * @dev Process full withdrawal
      */
     function _processWithdrawal(address user, uint64 totalAmount) internal {
-        // Deactivate stake
+        // Deactivate stake and clear mirrors
         stakes[user].isActive = false;
-        
-        // Transfer total amount
+        stakes[user].amountWeiClear = 0;
+        stakes[user].apyRateClear = 0;
+        stakes[user].stakeTimestampClear = 0;
+        stakes[user].lastClaimTimestampClear = 0;
+
+        // Transfer principal + reward (internal transfer)
         payable(user).transfer(totalAmount);
-        
+
         emit FullWithdrawal(user, totalAmount);
+    }
+
+    // =================
+    // Clear path helpers
+    // =================
+    function _computeRewardClear(address user) internal view returns (uint256) {
+        StakeInfo storage s = stakes[user];
+        if (!s.isActive) return 0;
+        uint64 start = s.lastClaimTimestampClear > 0
+            ? s.lastClaimTimestampClear
+            : s.stakeTimestampClear;
+        if (block.timestamp <= start) return 0;
+        uint256 elapsed = uint256(block.timestamp - start);
+        // rewardWei = amountWei * apy% * elapsed / (YEAR * 100)
+        return (uint256(s.amountWeiClear) * uint256(s.apyRateClear) * elapsed)
+            / (SECONDS_PER_YEAR * 100);
+    }
+
+    /**
+     * @dev Withdraw all (principal + reward) using clear mirrors (no decryption)
+     */
+    function withdrawAllClear() external onlyActiveStake(msg.sender) {
+        StakeInfo storage s = stakes[msg.sender];
+        uint256 reward = _computeRewardClear(msg.sender);
+        uint256 total = uint256(s.amountWeiClear) + reward;
+
+        // Deactivate and clear mirrors
+        s.isActive = false;
+        s.amountWeiClear = 0;
+        s.apyRateClear = 0;
+        s.stakeTimestampClear = 0;
+        s.lastClaimTimestampClear = 0;
+
+        // Internal transfer from contract balance
+        payable(msg.sender).transfer(total);
+
+        emit FullWithdrawal(msg.sender, total);
     }
     
     /**

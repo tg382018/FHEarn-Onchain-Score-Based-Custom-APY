@@ -6,7 +6,7 @@ let initSDK;
 let createInstance;
 let SepoliaConfig;
 // Single source of truth for the stake contract address
-const STAKE_CONTRACT_ADDRESS = "0xb14cedE0497De8040f58e0acd3bBD1410fBECe55";
+const STAKE_CONTRACT_ADDRESS = "0x73Cd102fA66551c82Eb97C50634Cbd19f2091f98";
 // State
 const isConnected = ref(false);
 const account = ref(null);
@@ -40,13 +40,16 @@ function startRewardUpdatesBaseline(baseline) {
     const tick = () => {
         const t = Math.floor(Date.now() / 1000);
         const rw = computeRewardWei(baseline.amountWei, baseline.apy, baseline.startSec, t);
-        stakeInfo.value.rewards = formatEthFromWeiBigInt(rw, 4);
+        const formatted = formatEthFromWeiBigInt(rw, 8);
+        stakeInfo.value.rewards = formatted;
+        console.log("reward(tick):", formatted, "ETH");
         localStorage.setItem("fhearn_stake_info", JSON.stringify(stakeInfo.value));
     };
+    // immediate compute and log
     tick();
     if (rewardTimer)
         clearInterval(rewardTimer);
-    rewardTimer = setInterval(tick, 120000);
+    rewardTimer = setInterval(tick, 30000);
 }
 function stopRewardUpdates() {
     if (rewardTimer) {
@@ -518,7 +521,7 @@ async function checkStakeStatus(userAddress) {
                 stakeInfo.value = {
                     isActive: true,
                     amount: stakeAmountETH,
-                    rewards: "0.0000",
+                    rewards: "0.00000000",
                     stakeDate,
                     apy: stakeAPY,
                 };
@@ -664,6 +667,7 @@ async function stakeETH() {
                     },
                     { internalType: "uint256", name: "deadline", type: "uint256" },
                     { internalType: "bytes", name: "inputProof", type: "bytes" },
+                    { internalType: "uint64", name: "apyClear", type: "uint64" },
                 ],
                 name: "stake",
                 outputs: [],
@@ -771,7 +775,7 @@ async function stakeETH() {
         // Calculate deadline (5 minutes from now)
         const deadline = Math.floor(Date.now() / 1000) + 300; // 5 minutes
         // Call the contract with real ETH
-        const tx = await contract.stake(encryptedAmount, encryptedAPY, deadline, inputProof, {
+        const tx = await contract.stake(encryptedAmount, encryptedAPY, deadline, inputProof, BigInt(apy), {
             value: ethers.parseEther(amount.toString()),
             gasLimit: 1000000,
         });
@@ -804,20 +808,28 @@ async function claimRewards() {
         return;
     isClaiming.value = true;
     try {
-        // Calculate rewards (simplified calculation)
-        const stakeTime = new Date().getTime() - new Date(stakeInfo.value.stakeDate).getTime();
-        const daysStaked = stakeTime / (1000 * 60 * 60 * 24);
-        const annualReward = parseFloat(stakeInfo.value.amount) * (stakeInfo.value.apy / 100);
-        const currentReward = (annualReward * daysStaked) / 365;
-        console.log("Claiming rewards:", currentReward);
-        // Simulate contract call
-        await new Promise((resolve) => setTimeout(resolve, 1500));
-        // Reset rewards to 0
-        stakeInfo.value.rewards = "0";
-        stakeInfo.value.stakeDate = new Date().toLocaleDateString(); // Reset stake date
-        // Save to localStorage
-        localStorage.setItem("fhearn_stake_info", JSON.stringify(stakeInfo.value));
-        console.log("Rewards claimed successfully!");
+        // Real contract call
+        const injected = window.ethereum?.providers?.find((p) => p?.isMetaMask) ||
+            window.ethereum;
+        const provider = new ethers.BrowserProvider(injected);
+        const signer = await provider.getSigner();
+        const contractABI = [
+            {
+                name: "claimReward",
+                type: "function",
+                stateMutability: "nonpayable",
+                inputs: [],
+                outputs: [],
+            },
+        ];
+        const contract = new ethers.Contract(STAKE_CONTRACT_ADDRESS, contractABI, signer);
+        console.log("Sending claimReward tx...");
+        const tx = await contract.claimReward({ gasLimit: 500000 });
+        console.log("Claim tx sent:", tx.hash);
+        await tx.wait();
+        console.log("Claim tx confirmed");
+        // Refresh on-chain state and rewards baseline
+        await checkStakeStatus(await signer.getAddress());
     }
     catch (error) {
         console.error("Claim error:", error);
@@ -832,20 +844,43 @@ async function withdrawAll() {
         return;
     isWithdrawing.value = true;
     try {
-        console.log("Withdrawing all:", stakeInfo.value.amount);
-        // Simulate contract call
-        await new Promise((resolve) => setTimeout(resolve, 2000));
-        // Reset stake info
-        stakeInfo.value = {
-            isActive: false,
-            amount: "0",
-            rewards: "0",
-            stakeDate: "",
-            apy: 0,
-        };
-        // Remove from localStorage
-        localStorage.removeItem("fhearn_stake_info");
-        console.log("Withdrawal successful!");
+        const injected = window.ethereum?.providers?.find((p) => p?.isMetaMask) ||
+            window.ethereum;
+        const provider = new ethers.BrowserProvider(injected);
+        const signer = await provider.getSigner();
+        const contractABI = [
+            {
+                name: "withdrawAll",
+                type: "function",
+                stateMutability: "nonpayable",
+                inputs: [],
+                outputs: [],
+            },
+            {
+                name: "withdrawAllClear",
+                type: "function",
+                stateMutability: "nonpayable",
+                inputs: [],
+                outputs: [],
+            },
+        ];
+        const contract = new ethers.Contract(STAKE_CONTRACT_ADDRESS, contractABI, signer);
+        console.log("Sending withdrawAll tx...");
+        // Prefer clear-path when available
+        let tx;
+        if (contract.withdrawAllClear) {
+            console.log("Sending withdrawAllClear tx...");
+            tx = await contract.withdrawAllClear({ gasLimit: 600000 });
+        }
+        else {
+            console.log("Sending withdrawAll tx...");
+            tx = await contract.withdrawAll({ gasLimit: 600000 });
+        }
+        console.log("Withdraw tx sent:", tx.hash);
+        await tx.wait();
+        console.log("Withdraw tx confirmed");
+        // Refresh on-chain state (should become inactive)
+        await checkStakeStatus(await signer.getAddress());
     }
     catch (error) {
         console.error("Withdrawal error:", error);
@@ -859,7 +894,10 @@ async function withdrawAll() {
 function loadStakeInfo() {
     const savedStakeInfo = localStorage.getItem("fhearn_stake_info");
     if (savedStakeInfo) {
-        stakeInfo.value = JSON.parse(savedStakeInfo);
+        // Only hydrate if we don't already have an active on-chain state
+        if (!stakeInfo.value.isActive) {
+            stakeInfo.value = JSON.parse(savedStakeInfo);
+        }
     }
 }
 // Update rewards every 2 minutes
@@ -894,7 +932,6 @@ onMounted(async () => {
     }
     // Load stake info and start reward updates
     loadStakeInfo();
-    startRewardUpdates();
 });
 // Initialize FHEVM
 async function initializeFHEVM() {
@@ -1346,9 +1383,10 @@ if (__VLS_ctx.isConnected && __VLS_ctx.walletMetrics && !__VLS_ctx.isLoadingMetr
             ...{ class: "flex space-x-3" },
         });
         __VLS_asFunctionalElement(__VLS_intrinsicElements.button, __VLS_intrinsicElements.button)({
-            ...{ onClick: (__VLS_ctx.claimRewards) },
-            disabled: (__VLS_ctx.isClaiming || parseFloat(__VLS_ctx.stakeInfo.rewards) <= 0),
-            ...{ class: "flex-1 bg-gradient-to-r from-yellow-500 to-yellow-400 text-white px-4 py-2 rounded-lg hover:from-yellow-600 hover:to-yellow-500 transition-all duration-200 font-medium flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed" },
+            ...{ onClick: () => { } },
+            disabled: (true),
+            title: "Coming soon",
+            ...{ class: "flex-1 bg-gradient-to-r from-slate-600 to-slate-500 text-white px-4 py-2 rounded-lg cursor-not-allowed opacity-60 font-medium flex items-center justify-center space-x-2" },
         });
         if (__VLS_ctx.isClaiming) {
             __VLS_asFunctionalElement(__VLS_intrinsicElements.svg, __VLS_intrinsicElements.svg)({
@@ -1383,7 +1421,6 @@ if (__VLS_ctx.isConnected && __VLS_ctx.walletMetrics && !__VLS_ctx.isLoadingMetr
             });
         }
         __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({});
-        (__VLS_ctx.isClaiming ? "Claiming..." : "Claim Rewards");
         __VLS_asFunctionalElement(__VLS_intrinsicElements.button, __VLS_intrinsicElements.button)({
             ...{ onClick: (__VLS_ctx.withdrawAll) },
             disabled: (__VLS_ctx.isWithdrawing),
@@ -2028,23 +2065,19 @@ if (__VLS_ctx.fhevmStatus) {
 /** @type {__VLS_StyleScopedClasses['space-x-3']} */ ;
 /** @type {__VLS_StyleScopedClasses['flex-1']} */ ;
 /** @type {__VLS_StyleScopedClasses['bg-gradient-to-r']} */ ;
-/** @type {__VLS_StyleScopedClasses['from-yellow-500']} */ ;
-/** @type {__VLS_StyleScopedClasses['to-yellow-400']} */ ;
+/** @type {__VLS_StyleScopedClasses['from-slate-600']} */ ;
+/** @type {__VLS_StyleScopedClasses['to-slate-500']} */ ;
 /** @type {__VLS_StyleScopedClasses['text-white']} */ ;
 /** @type {__VLS_StyleScopedClasses['px-4']} */ ;
 /** @type {__VLS_StyleScopedClasses['py-2']} */ ;
 /** @type {__VLS_StyleScopedClasses['rounded-lg']} */ ;
-/** @type {__VLS_StyleScopedClasses['hover:from-yellow-600']} */ ;
-/** @type {__VLS_StyleScopedClasses['hover:to-yellow-500']} */ ;
-/** @type {__VLS_StyleScopedClasses['transition-all']} */ ;
-/** @type {__VLS_StyleScopedClasses['duration-200']} */ ;
+/** @type {__VLS_StyleScopedClasses['cursor-not-allowed']} */ ;
+/** @type {__VLS_StyleScopedClasses['opacity-60']} */ ;
 /** @type {__VLS_StyleScopedClasses['font-medium']} */ ;
 /** @type {__VLS_StyleScopedClasses['flex']} */ ;
 /** @type {__VLS_StyleScopedClasses['items-center']} */ ;
 /** @type {__VLS_StyleScopedClasses['justify-center']} */ ;
 /** @type {__VLS_StyleScopedClasses['space-x-2']} */ ;
-/** @type {__VLS_StyleScopedClasses['disabled:opacity-50']} */ ;
-/** @type {__VLS_StyleScopedClasses['disabled:cursor-not-allowed']} */ ;
 /** @type {__VLS_StyleScopedClasses['animate-spin']} */ ;
 /** @type {__VLS_StyleScopedClasses['w-4']} */ ;
 /** @type {__VLS_StyleScopedClasses['h-4']} */ ;
@@ -2291,7 +2324,6 @@ const __VLS_self = (await import('vue')).defineComponent({
             switchToSepolia: switchToSepolia,
             setMaxAmount: setMaxAmount,
             stakeETH: stakeETH,
-            claimRewards: claimRewards,
             withdrawAll: withdrawAll,
             connectWallet: connectWallet,
         };
