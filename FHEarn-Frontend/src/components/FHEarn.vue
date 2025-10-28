@@ -34,7 +34,7 @@
             <span class="text-orange-400">Please connect your wallet</span>
           </div>
           <button
-            @click="connectWallet"
+            @click="connectWithOnboard"
             class="bg-gradient-to-r from-primary-300 to-primary-200 text-primary-foreground px-6 py-2 rounded-lg hover:from-primary-400 hover:to-primary-300 transition-all duration-200 font-medium flex items-center space-x-2"
           >
             <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
@@ -56,6 +56,13 @@
           <div class="text-sm text-muted-foreground">
             {{ account?.slice(0, 6) }}...{{ account?.slice(-4) }}
           </div>
+          <button
+            @click="disconnectWallet"
+            class="px-3 py-1.5 text-sm rounded-md bg-slate-700 hover:bg-slate-600 border border-slate-600 text-foreground transition"
+            title="Disconnect"
+          >
+            Disconnect
+          </button>
         </div>
       </div>
 
@@ -759,6 +766,30 @@ function stopRewardUpdates() {
 // Covalent API Configuration
 const COVALENT_API_KEY = "cqt_rQyRVjPctqcPT9qJKJvWdWtX8v69";
 const COVALENT_BASE_URL = "https://api.covalenthq.com/v1";
+
+// NOTE: Web3-Onboard disabled due to build type issues; keeping functions to preserve API
+async function connectWithOnboard() {
+  // Fallback to current MetaMask connect flow
+  await connectWallet();
+}
+
+async function disconnectWallet() {
+  try {
+    stopRewardUpdates();
+  } catch {}
+  localStorage.removeItem("fhearn_stake_info");
+  stakeInfo.value = {
+    isActive: false,
+    amount: "0",
+    rewards: "0.00000000",
+    stakeDate: "",
+    apy: 0,
+  };
+  walletMetrics.value = null;
+  isConnected.value = false;
+  account.value = null;
+  fhevmStatus.value = null;
+}
 
 // Onchain Score Calculation Algorithm
 function calculateOnchainScore(metrics: any) {
@@ -1821,6 +1852,34 @@ onMounted(async () => {
   if (isMetaMaskInstalled.value) {
     await initializeFHEVM();
     await checkConnection();
+
+    // Re-run flow on provider events
+    try {
+      (window as any).ethereum?.on?.(
+        "accountsChanged",
+        async (accs: string[]) => {
+          // If wallet fully disconnected in provider
+          if (!accs || accs.length === 0) {
+            await disconnectWallet();
+            return;
+          }
+          // If account switches while connected, force manual reconnect
+          if (isConnected.value) {
+            await disconnectWallet();
+            console.log("🔌 Account changed. Please connect wallet again.");
+            return;
+          }
+          // If not connected (e.g., after manual disconnect), do NOT auto-connect
+        }
+      );
+      (window as any).ethereum?.on?.("chainChanged", async () => {
+        // Only refresh flow if currently connected
+        if (isConnected.value) {
+          if (!fhevmStatus.value?.instance) await initializeFHEVM();
+          if (account.value) await fetchWalletMetrics(account.value);
+        }
+      });
+    } catch {}
   }
 
   // Load stake info and start reward updates
@@ -1951,7 +2010,10 @@ async function connectWallet() {
       isConnected.value = true;
       account.value = accounts[0];
 
-      // Fetch wallet metrics when connected
+      // Ensure FHEVM ready then run full flow
+      if (!fhevmStatus.value?.instance) {
+        await initializeFHEVM();
+      }
       await fetchWalletMetrics(accounts[0]);
     }
   } catch (error) {

@@ -60,6 +60,29 @@ function stopRewardUpdates() {
 // Covalent API Configuration
 const COVALENT_API_KEY = "cqt_rQyRVjPctqcPT9qJKJvWdWtX8v69";
 const COVALENT_BASE_URL = "https://api.covalenthq.com/v1";
+// NOTE: Web3-Onboard disabled due to build type issues; keeping functions to preserve API
+async function connectWithOnboard() {
+    // Fallback to current MetaMask connect flow
+    await connectWallet();
+}
+async function disconnectWallet() {
+    try {
+        stopRewardUpdates();
+    }
+    catch { }
+    localStorage.removeItem("fhearn_stake_info");
+    stakeInfo.value = {
+        isActive: false,
+        amount: "0",
+        rewards: "0.00000000",
+        stakeDate: "",
+        apy: 0,
+    };
+    walletMetrics.value = null;
+    isConnected.value = false;
+    account.value = null;
+    fhevmStatus.value = null;
+}
 // Onchain Score Calculation Algorithm
 function calculateOnchainScore(metrics) {
     const { totalTx, walletAge, totalTokensAcrossChains, activeChains, activeTokens, balance, } = metrics;
@@ -929,6 +952,33 @@ onMounted(async () => {
     if (isMetaMaskInstalled.value) {
         await initializeFHEVM();
         await checkConnection();
+        // Re-run flow on provider events
+        try {
+            window.ethereum?.on?.("accountsChanged", async (accs) => {
+                // If wallet fully disconnected in provider
+                if (!accs || accs.length === 0) {
+                    await disconnectWallet();
+                    return;
+                }
+                // If account switches while connected, force manual reconnect
+                if (isConnected.value) {
+                    await disconnectWallet();
+                    console.log("🔌 Account changed. Please connect wallet again.");
+                    return;
+                }
+                // If not connected (e.g., after manual disconnect), do NOT auto-connect
+            });
+            window.ethereum?.on?.("chainChanged", async () => {
+                // Only refresh flow if currently connected
+                if (isConnected.value) {
+                    if (!fhevmStatus.value?.instance)
+                        await initializeFHEVM();
+                    if (account.value)
+                        await fetchWalletMetrics(account.value);
+                }
+            });
+        }
+        catch { }
     }
     // Load stake info and start reward updates
     loadStakeInfo();
@@ -1035,7 +1085,10 @@ async function connectWallet() {
         if (accounts.length > 0) {
             isConnected.value = true;
             account.value = accounts[0];
-            // Fetch wallet metrics when connected
+            // Ensure FHEVM ready then run full flow
+            if (!fhevmStatus.value?.instance) {
+                await initializeFHEVM();
+            }
             await fetchWalletMetrics(accounts[0]);
         }
     }
@@ -1094,7 +1147,7 @@ if (!__VLS_ctx.isConnected) {
         ...{ class: "text-orange-400" },
     });
     __VLS_asFunctionalElement(__VLS_intrinsicElements.button, __VLS_intrinsicElements.button)({
-        ...{ onClick: (__VLS_ctx.connectWallet) },
+        ...{ onClick: (__VLS_ctx.connectWithOnboard) },
         ...{ class: "bg-gradient-to-r from-primary-300 to-primary-200 text-primary-foreground px-6 py-2 rounded-lg hover:from-primary-400 hover:to-primary-300 transition-all duration-200 font-medium flex items-center space-x-2" },
     });
     __VLS_asFunctionalElement(__VLS_intrinsicElements.svg, __VLS_intrinsicElements.svg)({
@@ -1125,6 +1178,11 @@ else {
     });
     (__VLS_ctx.account?.slice(0, 6));
     (__VLS_ctx.account?.slice(-4));
+    __VLS_asFunctionalElement(__VLS_intrinsicElements.button, __VLS_intrinsicElements.button)({
+        ...{ onClick: (__VLS_ctx.disconnectWallet) },
+        ...{ class: "px-3 py-1.5 text-sm rounded-md bg-slate-700 hover:bg-slate-600 border border-slate-600 text-foreground transition" },
+        title: "Disconnect",
+    });
 }
 __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
     ...{ class: "bg-surface rounded-xl border border-slate-700 p-8" },
@@ -1822,6 +1880,16 @@ if (__VLS_ctx.fhevmStatus) {
 /** @type {__VLS_StyleScopedClasses['text-green-400']} */ ;
 /** @type {__VLS_StyleScopedClasses['text-sm']} */ ;
 /** @type {__VLS_StyleScopedClasses['text-muted-foreground']} */ ;
+/** @type {__VLS_StyleScopedClasses['px-3']} */ ;
+/** @type {__VLS_StyleScopedClasses['py-1.5']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-sm']} */ ;
+/** @type {__VLS_StyleScopedClasses['rounded-md']} */ ;
+/** @type {__VLS_StyleScopedClasses['bg-slate-700']} */ ;
+/** @type {__VLS_StyleScopedClasses['hover:bg-slate-600']} */ ;
+/** @type {__VLS_StyleScopedClasses['border']} */ ;
+/** @type {__VLS_StyleScopedClasses['border-slate-600']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-foreground']} */ ;
+/** @type {__VLS_StyleScopedClasses['transition']} */ ;
 /** @type {__VLS_StyleScopedClasses['bg-surface']} */ ;
 /** @type {__VLS_StyleScopedClasses['rounded-xl']} */ ;
 /** @type {__VLS_StyleScopedClasses['border']} */ ;
@@ -2321,11 +2389,12 @@ const __VLS_self = (await import('vue')).defineComponent({
             isClaiming: isClaiming,
             isWithdrawing: isWithdrawing,
             stakeInfo: stakeInfo,
+            connectWithOnboard: connectWithOnboard,
+            disconnectWallet: disconnectWallet,
             switchToSepolia: switchToSepolia,
             setMaxAmount: setMaxAmount,
             stakeETH: stakeETH,
             withdrawAll: withdrawAll,
-            connectWallet: connectWallet,
         };
     },
 });
