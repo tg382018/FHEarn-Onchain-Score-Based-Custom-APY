@@ -720,7 +720,7 @@ function stopRewardUpdates() {
 }
 
 // Covalent API Configuration
-const COVALENT_API_KEY = "cqt_rQyRVjPctqcPT9qJKJvWdWtX8v69";
+const COVALENT_API_KEY = "cqt_rQr6bcpJcTkkbCpkfkV3QKWG6MXy";
 const COVALENT_BASE_URL = "https://api.covalenthq.com/v1";
 
 // NOTE: Web3-Onboard disabled due to build type issues; keeping functions to preserve API
