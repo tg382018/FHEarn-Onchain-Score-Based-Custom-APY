@@ -29,7 +29,6 @@ const config: HardhatUserConfig = {
     disambiguatePaths: false,
     runOnCompile: true,
     strict: true,
-    only: ["CAMMPair", "CAMMFactory"], // optional: limit the report
   },
   etherscan: {
     apiKey: vars.get("ETHERSCAN_API_KEY", ""),

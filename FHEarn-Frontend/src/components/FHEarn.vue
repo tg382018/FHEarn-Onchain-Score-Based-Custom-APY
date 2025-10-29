@@ -1,8 +1,10 @@
 <template>
   <div class="min-h-screen bg-zama p-4 text-foreground">
     <!-- Header -->
-    <div class="max-w-6xl mx-auto">
-      <div class="flex items-center justify-between mb-8">
+    <div class="max-w-6xl mx-auto mb-8">
+      <div
+        class="flex items-center justify-between bg-white/10 backdrop-blur-md rounded-2xl px-6 py-4 border border-white/20 shadow-lg"
+      >
         <div class="flex items-center space-x-4">
           <img
             src="/fhearnlogo.png"
@@ -97,10 +99,11 @@
                 </svg>
               </div>
               <h3 class="text-lg font-semibold text-foreground mb-2">
-                Confidential Trading
+                Score-Based APY
               </h3>
               <p class="text-muted-foreground text-sm">
-                Trade tokens while keeping your amounts and balances private
+                Earn personalized rewards based on your on-chain activity score
+                and engagement level
               </p>
             </div>
 
@@ -164,7 +167,7 @@
               ></div>
               <div>
                 <h3 class="text-xl font-bold text-blue-300 mb-2">
-                  🔄 Loading Wallet Metrics...
+                  Loading Wallet Metrics...
                 </h3>
                 <p class="text-blue-200 text-sm">
                   Fetching your onchain data from Ethereum Mainnet
@@ -179,7 +182,7 @@
             class="bg-gradient-to-r from-green-900/30 to-blue-900/30 rounded-lg p-6 mb-8 border border-green-500/30"
           >
             <h3 class="text-xl font-bold text-green-300 mb-6">
-              🚀 Confidential Staking
+              Confidential Staking
             </h3>
 
             <!-- Stake Input Section -->
@@ -216,21 +219,15 @@
                   </div>
                 </div>
 
-                <div class="flex space-x-2">
+                <div>
                   <input
                     v-model="stakeAmount"
                     type="number"
                     step="0.001"
                     min="0.001"
                     placeholder="0.001"
-                    class="flex-1 bg-slate-800/50 border border-slate-600 rounded-lg px-4 py-2 text-foreground placeholder-slate-400 focus:border-green-400 focus:ring-1 focus:ring-green-400"
+                    class="w-full bg-slate-800/50 border border-slate-600 rounded-lg px-4 py-2 text-foreground placeholder-slate-400 focus:border-green-400 focus:ring-1 focus:ring-green-400"
                   />
-                  <button
-                    @click="setMaxAmount"
-                    class="bg-green-600/20 border border-green-500/30 text-green-300 px-3 py-2 rounded-lg hover:bg-green-600/30 transition-colors text-sm"
-                  >
-                    MAX
-                  </button>
                 </div>
                 <p class="text-xs text-green-300 mt-1">
                   Your APY: {{ walletMetrics.apy }}% ({{ walletMetrics.tier }}
@@ -432,7 +429,7 @@
             class="bg-slate-800/50 rounded-lg p-6 border border-slate-700 mb-8"
           >
             <h3 class="text-lg font-semibold text-foreground mb-4">
-              📊 Covalent API Wallet Analytics (Ethereum Mainnet)
+              Covalent API Wallet Analytics (Ethereum Mainnet)
             </h3>
 
             <!-- Onchain Score & APY Section -->
@@ -441,7 +438,7 @@
             >
               <div class="flex items-center justify-between mb-4">
                 <h4 class="text-xl font-bold text-blue-300">
-                  🎯 Your Onchain Score
+                  Your Onchain Score
                 </h4>
                 <div class="flex items-center space-x-4">
                   <div class="text-center">
@@ -2026,19 +2023,19 @@ async function connectWallet() {
 .bg-zama {
   background: linear-gradient(
     135deg,
-    #000000 0%,
-    #1a1a1a 25%,
-    #2d2d2d 50%,
-    #1a1a1a 75%,
-    #000000 100%
+    #050209 0%,
+    #1e0a33 25%,
+    #2d1a44 50%,
+    #1e0a33 75%,
+    #050209 100%
   );
   background-attachment: fixed;
 }
 
 .bg-surface {
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(255, 255, 255, 0.05);
   backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.15);
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3),
     0 2px 4px -1px rgba(0, 0, 0, 0.2);
 }
@@ -2057,16 +2054,16 @@ async function connectWallet() {
 }
 
 .bg-slate-800\/50 {
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(255, 255, 255, 0.03);
   backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.15);
   box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.2);
 }
 
 .bg-slate-700\/50 {
-  background: rgba(0, 0, 0, 0.4);
+  background: rgba(255, 255, 255, 0.02);
   backdrop-filter: blur(6px);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   box-shadow: 0 1px 3px -1px rgba(0, 0, 0, 0.15);
 }
 
