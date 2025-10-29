@@ -326,53 +326,12 @@
                 </div>
               </div>
 
-              <!-- Action Buttons -->
-              <div class="flex space-x-3">
-                <button
-                  @click.prevent
-                  :disabled="true"
-                  title="Coming soon"
-                  class="flex-1 bg-gradient-to-r from-slate-600 to-slate-500 text-white px-4 py-2 rounded-lg cursor-not-allowed opacity-60 font-medium flex items-center justify-center space-x-2"
-                >
-                  <svg
-                    v-if="isClaiming"
-                    class="animate-spin w-4 h-4"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      class="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      stroke-width="4"
-                    ></circle>
-                    <path
-                      class="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    ></path>
-                  </svg>
-                  <svg
-                    v-else
-                    class="w-4 h-4"
-                    fill="currentColor"
-                    viewBox="0 0 20 20"
-                  >
-                    <path
-                      fill-rule="evenodd"
-                      d="M3 3a1 1 0 000 2v8a2 2 0 002 2h2.586l-1.293 1.293a1 1 0 101.414 1.414L10 15.414l2.293 2.293a1 1 0 001.414-1.414L12.414 15H15a2 2 0 002-2V5a1 1 0 100-2H3zm11.707 4.707a1 1 0 00-1.414-1.414L9 10.586 8.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                      clip-rule="evenodd"
-                    />
-                  </svg>
-                  <span>Claim ONLY Rewards (Coming soon)</span>
-                </button>
-
+              <!-- Action Button -->
+              <div class="flex justify-center">
                 <button
                   @click="withdrawAll"
                   :disabled="isWithdrawing"
-                  class="flex-1 bg-gradient-to-r from-red-500 to-red-400 text-white px-4 py-2 rounded-lg hover:from-red-600 hover:to-red-500 transition-all duration-200 font-medium flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  class="bg-gradient-to-r from-red-500 to-red-400 text-white px-6 py-3 rounded-lg hover:from-red-600 hover:to-red-500 transition-all duration-200 font-medium flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <svg
                     v-if="isWithdrawing"
