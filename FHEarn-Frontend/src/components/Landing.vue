@@ -225,31 +225,36 @@
     <section class="how-it-works">
       <div class="container">
         <h2 class="section-title">How It Works</h2>
-        <div class="steps">
-          <div class="step" :style="{ transitionDelay: '0ms' }" key="s1">
-            <div class="step-number">1</div>
-            <img :src="connectLogo" alt="Connect Wallet" class="step-img" />
-            <h3 class="step-title">Connect Wallet</h3>
-            <p class="step-description">
-              Connect your MetaMask wallet to Sepolia testnet
-            </p>
+        <p class="section-subtitle">
+          Seamless flow from wallet connection to encrypted staking, animated to
+          show your journey at a glance.
+        </p>
+        <div class="process">
+          <div class="process-icons">
+            <div
+              class="process-icon"
+              v-for="step in processSteps"
+              :key="step.title"
+            >
+              <div class="process-icon-wrap">
+                <span class="process-icon-number">{{ step.number }}</span>
+              </div>
+            </div>
           </div>
-          <div class="step" :style="{ transitionDelay: '100ms' }" key="s2">
-            <div class="step-number">2</div>
-            <img :src="calculateLogo" alt="Calculate Score" class="step-img" />
-            <h3 class="step-title">Calculate Score</h3>
-            <p class="step-description">
-              We analyze your on-chain activity to calculate your personalized
-              APY
-            </p>
+          <div class="process-track">
+            <div class="process-track-fill"></div>
           </div>
-          <div class="step" :style="{ transitionDelay: '200ms' }" key="s3">
-            <div class="step-number">3</div>
-            <img :src="stakeLogo" alt="Stake Privately" class="step-img" />
-            <h3 class="step-title">Stake Privately</h3>
-            <p class="step-description">
-              Stake with FHE encryption. Amount and APY stay private on-chain
-            </p>
+          <div class="process-steps">
+            <div
+              class="process-step"
+              v-for="(step, index) in processSteps"
+              :key="`detail-${step.title}`"
+              :style="{ animationDelay: `${index * 4}s` }"
+            >
+              <span class="process-step-number">{{ step.number }}</span>
+              <h3>{{ step.title }}</h3>
+              <p>{{ step.description }}</p>
+            </div>
           </div>
         </div>
       </div>
@@ -322,9 +327,6 @@ import fhevmLogo from "../../logos/fhelogo.webp";
 import zamaLogo from "../../logos/zamalogo.jpg";
 import sepoliaLogo from "../../logos/ethereumlogo.jpg";
 import vueLogo from "../../logos/vue3logo.jpeg";
-import connectLogo from "../../photos/connetwalletlogo.png";
-import calculateLogo from "../../photos/calculate.jpeg";
-import stakeLogo from "../../photos/stake.png";
 
 export default defineComponent({
   name: "Landing",
@@ -387,18 +389,36 @@ export default defineComponent({
       { score: "30 – 49", tier: "Beginner", apy: "8% APY" },
       { score: "0 – 29", tier: "Newcomer", apy: "5% APY" },
     ];
+    const processSteps = [
+      {
+        number: "01",
+        title: "Connect Wallet",
+        description:
+          "Link MetaMask on Sepolia and detect existing confidential stakes immediately.",
+      },
+      {
+        number: "02",
+        title: "Score & Encrypt",
+        description:
+          "Run multi-chain analytics, assign APY and encrypt stake inputs via FHEVM relayer.",
+      },
+      {
+        number: "03",
+        title: "Stake Privately",
+        description:
+          "Lock funds with encrypted principal and rewards while APY accrues under encryption.",
+      },
+    ];
     return {
       launchApp,
       getOrbStyle,
+      processSteps,
       scoreMetrics,
       apyTiers,
       fhevmLogo,
       zamaLogo,
       sepoliaLogo,
       vueLogo,
-      connectLogo,
-      calculateLogo,
-      stakeLogo,
     };
   },
 });
@@ -622,6 +642,52 @@ export default defineComponent({
   100% {
     transform: translate(0, 0) scale(0.8);
     opacity: 0.3;
+  }
+}
+
+@keyframes trackFill {
+  0% {
+    width: 0%;
+    background-position: 0% 50%;
+  }
+  33% {
+    width: 35%;
+    background-position: 50% 50%;
+  }
+  66% {
+    width: 70%;
+    background-position: 75% 50%;
+  }
+  90% {
+    width: 100%;
+    background-position: 100% 50%;
+  }
+  100% {
+    width: 100%;
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes stepReveal {
+  0% {
+    opacity: 0.35;
+    transform: translateY(10px);
+  }
+  5% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  25% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  35% {
+    opacity: 0.35;
+    transform: translateY(10px);
+  }
+  100% {
+    opacity: 0.35;
+    transform: translateY(10px);
   }
 }
 
@@ -851,15 +917,119 @@ export default defineComponent({
   border-color: rgba(249, 115, 22, 0.65);
 }
 
+.process {
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+  margin-top: 3.5rem;
+}
+
+.process-icons {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 1.5rem;
+  justify-items: center;
+}
+
+.process-icon-wrap {
+  width: 96px;
+  height: 96px;
+  border-radius: 24px;
+  background: rgba(20, 24, 52, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 18px 40px rgba(8, 12, 30, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.process-icon-number {
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: #facc15;
+}
+
+.process-track {
+  position: relative;
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.15);
+}
+
+.process-track-fill {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, #f97316, #c026d3, #38bdf8);
+  background-size: 200% 100%;
+  animation: trackFill 12s ease-in-out infinite;
+}
+
+.process-steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1.5rem;
+  text-align: left;
+}
+
+.process-step {
+  background: rgba(18, 22, 48, 0.7);
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 1.75rem;
+  box-shadow: 0 15px 40px rgba(8, 12, 35, 0.35);
+  opacity: 0.35;
+  transform: translateY(10px);
+  animation: stepReveal 12s ease-in-out infinite;
+}
+
+.process-step-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: rgba(243, 244, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #fbbf24;
+  margin-bottom: 1rem;
+}
+
+.process-step h3 {
+  font-size: 1.35rem;
+  margin-bottom: 0.75rem;
+}
+
+.process-step p {
+  color: #a5b4fc;
+  line-height: 1.75;
+}
+
+.process-step:nth-child(2) {
+  animation-delay: 4s;
+}
+
+.process-step:nth-child(3) {
+  animation-delay: 8s;
+}
+
 .section-header {
   text-align: center;
 }
 
 .score-grid {
-  margin-top: 3rem;
+  margin: 3rem auto 0;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 1.5rem;
+  max-width: 1080px;
 }
 
 .score-card {
@@ -1151,64 +1321,6 @@ export default defineComponent({
   border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.steps {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 3rem;
-  margin-top: 60px;
-}
-
-.step {
-  text-align: center;
-  position: relative;
-}
-
-.step-number {
-  position: absolute;
-  top: -20px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 60px;
-  height: 60px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 2rem;
-  font-weight: 900;
-  color: white;
-  box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
-}
-
-.step-icon {
-  font-size: 4rem;
-  margin: 40px 0 1.5rem;
-}
-
-.step-img {
-  width: 144px;
-  height: 144px;
-  object-fit: contain;
-  border-radius: 24px;
-  background: rgba(255, 255, 255, 0.06);
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.25);
-  margin: 40px auto 1.5rem;
-  display: block;
-}
-
-.step-title {
-  font-size: 1.5rem;
-  font-weight: 700;
-  margin-bottom: 0.75rem;
-  color: white;
-}
-
-.step-description {
-  color: #8b95b7;
-  line-height: 1.7;
-}
-
 /* FAQ Section */
 .faq {
   padding: 100px 20px;
@@ -1250,6 +1362,12 @@ export default defineComponent({
 .faq-answer {
   color: #8b95b7;
   line-height: 1.8;
+}
+
+@media (max-width: 1024px) {
+  .score-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 /* Responsive */
@@ -1309,9 +1427,21 @@ export default defineComponent({
     gap: 2rem;
   }
 
-  .steps {
+  .process-icons {
+    gap: 1rem;
+  }
+
+  .process-icon-wrap {
+    width: 76px;
+    height: 76px;
+  }
+
+  .process-steps {
     grid-template-columns: 1fr;
-    gap: 2rem;
+  }
+
+  .process-step {
+    padding: 1.5rem;
   }
 
   .architecture-wrapper {
