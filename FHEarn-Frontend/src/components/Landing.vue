@@ -323,16 +323,15 @@
 
 <script lang="ts">
 import { defineComponent } from "vue";
-import fhevmLogo from "../../logos/fhelogo.webp";
-import zamaLogo from "../../logos/zamalogo.jpg";
-import sepoliaLogo from "../../logos/ethereumlogo.jpg";
-import vueLogo from "../../logos/vue3logo.jpeg";
-
 export default defineComponent({
   name: "Landing",
   emits: ["launch-app"],
   setup(_, { emit }) {
     const launchApp = () => emit("launch-app");
+    const fhevmLogo = "/media/fhelogo.webp";
+    const zamaLogo = "/media/zamalogo.jpg";
+    const sepoliaLogo = "/media/ethereumlogo.jpg";
+    const vueLogo = "/media/vue3logo.jpeg";
     const getOrbStyle = (i: number) => ({
       "--delay": `${i * 1.2}s`,
       "--duration": `${5 + i * 1.2}s`,

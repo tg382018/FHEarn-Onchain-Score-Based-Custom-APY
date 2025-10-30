@@ -7,7 +7,7 @@
       >
         <div class="flex items-center space-x-4">
           <img
-            src="/fhearnlogo.png"
+            src="/media/fhearnlogo.png"
             alt="FHEarn Logo"
             class="h-[60px] w-[100px]"
           />

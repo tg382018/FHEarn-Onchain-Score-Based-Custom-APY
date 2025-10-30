@@ -359,10 +359,7 @@ contract FHEarnStake is SepoliaConfig {
         return (s.amount, s.timestamp, s.lastClaimTime, s.apyRate, s.isActive);
     }
     
-    /**
-     * @dev Get current reward estimate (for UI display)
-     * Note: This is approximate due to encrypted nature
-     */
+   
     function getRewardEstimate(address user) external view returns (uint256) {
         if (!stakes[user].isActive) return 0;
         
